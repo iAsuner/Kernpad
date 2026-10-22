@@ -1,6 +1,22 @@
 param([string]$PublishDirectory = "$PSScriptRoot/Artifacts/Kernpad-1.0.0-win-x64")
 $ErrorActionPreference = 'Stop'
 # Run only on an expendable VM account. No certificate is added to a trust store.
+$libraryRoot = Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'Kernpad'
+if (Test-Path -LiteralPath $libraryRoot) { throw 'Use a fresh disposable Windows account: an existing Kernpad library must not be used by this test' }
+function Read-StarterNotes {
+    try {
+        $profile = Get-Content -LiteralPath (Join-Path $libraryRoot 'active.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+        $profileID = [guid]::Empty
+        if (-not [guid]::TryParse([string]$profile, [ref]$profileID)) { return @() }
+        $path = Join-Path $libraryRoot ('Libraries/' + $profileID.ToString('D') + '/notes.json')
+        $notes = @(Get-Content -LiteralPath $path -Raw -Encoding UTF8 | ConvertFrom-Json)
+        if ($notes.Count -ne 4) { return @() }
+        foreach ($note in $notes) {
+            if ($note.type -ne 'note' -or $note.id -notlike 'example-*' -or -not $note.name -or @($note.blocks).Count -eq 0) { return @() }
+        }
+        return $notes
+    } catch { return @() } # The atomic startup write may not have completed yet.
+}
 $source = (Resolve-Path $PublishDirectory).Path
 $temporary = Join-Path ([IO.Path]::GetTempPath()) ('Kernpad-SelfSign-' + [guid]::NewGuid())
 $installed = Join-Path $temporary 'Kernpad'
@@ -35,13 +51,9 @@ try {
         if ($process.HasExited) { throw 'Installed self-signed application exited before showing its window' }
     } while ($process.MainWindowHandle -eq 0 -and (Get-Date) -lt $deadline)
     if ($process.MainWindowHandle -eq 0 -or $process.MainWindowTitle -ne 'Kernpad') { throw 'Installed application did not show the Kernpad window' }
-    # A window handle can appear before WebView2 has bootstrapped and committed
-    # the starter documents. Wait for the actual accessible save status instead
-    # of racing startup with a fixed three-second delay on a busy VM.
+    # Quiet autosave intentionally has no visible Saved label. Require both
+    # committed starter documents and their accessible navigation buttons.
     Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
-    # Windows PowerShell 5.1 reads a BOM-less UTF-8 script as ANSI. Construct
-    # the Chinese saved label from code points so matching is encoding-safe.
-    $savedLabels = @('Saved', (-join [char[]]@(0x5DF2, 0x4FDD, 0x5B58)))
     $editorReady = $false
     $deadline = (Get-Date).AddSeconds(60)
     do {
@@ -52,11 +64,15 @@ try {
         # provider may not satisfy a NameProperty FindFirst filter until its
         # accessibility subtree has been materialized.
         $elements = $windowElement.FindAll([System.Windows.Automation.TreeScope]::Descendants, [System.Windows.Automation.Condition]::TrueCondition)
-        $editorReady = $false
+        $visibleNames = @()
         foreach ($element in $elements) {
-            try { $name = [string]$element.Current.Name; if ($name.Trim() -in $savedLabels) { $editorReady = $true; break } }
+            try {
+                if ($element.Current.ControlType -eq [System.Windows.Automation.ControlType]::Button -and -not $element.Current.IsOffscreen) { $visibleNames += ([string]$element.Current.Name).Trim() }
+            }
             catch [System.Windows.Automation.ElementNotAvailableException] { continue }
         }
+        $starterNotes = @(Read-StarterNotes)
+        $editorReady = $starterNotes.Count -eq 4 -and @($starterNotes | Where-Object { $_.name -notin $visibleNames }).Count -eq 0
         if (-not $editorReady) { Start-Sleep -Milliseconds 300 }
     } while (-not $editorReady -and (Get-Date) -lt $deadline)
     if (-not $editorReady) {
@@ -71,7 +87,7 @@ try {
         $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
         try { $graphics.CopyFromScreen($bounds.Location, [System.Drawing.Point]::Empty, $bounds.Size); $bitmap.Save((Join-Path $PSScriptRoot 'Artifacts/windows-installed-ui.png')) }
         finally { $graphics.Dispose(); $bitmap.Dispose() }
-        throw 'Installed editor never reached its acknowledged saved state; isolated VM UI diagnostics saved'
+        throw 'Installed application did not expose its four persisted starter documents; isolated VM UI diagnostics saved'
     }
     if (-not $process.CloseMainWindow()) { throw 'Installed application rejected the normal window-close request' }
     # The application allows up to 20 seconds for its acknowledged save. Give
@@ -92,10 +108,12 @@ try {
         throw 'Installed application did not exit within 40 seconds of normal close; isolated VM diagnostics saved'
     }
     if ($process.ExitCode -ne 0) { throw "Installed application closed with exit code $($process.ExitCode)" }
-    $result = [ordered]@{ syntheticAccount = $true; checks = 4; signed = $true; signatureStatus = [string]$signature.Status; trustStoreModified = $false; tamperRejected = $true; installedCopyLaunched = $true; normalClose = $true; helloAuthenticationTested = $false; result = 'passed' }
+    $closedNotes = @(Read-StarterNotes)
+    if ($closedNotes.Count -ne 4 -or (Compare-Object @($starterNotes.id) @($closedNotes.id))) { throw 'Starter documents were not preserved after normal close' }
+    $result = [ordered]@{ syntheticAccount = $true; checks = 5; signed = $true; signatureStatus = [string]$signature.Status; trustStoreModified = $false; tamperRejected = $true; installedCopyLaunched = $true; starterDocumentsPersisted = $true; normalClose = $true; helloAuthenticationTested = $false; result = 'passed' }
     $output = Join-Path $PSScriptRoot 'Artifacts/windows-self-sign-result.json'
     $result | ConvertTo-Json | Set-Content -LiteralPath $output -Encoding utf8
-    Write-Output '4 Windows self-signature, tamper rejection, installed launch and normal-close checks passed'
+    Write-Output '5 Windows self-signature, tamper rejection, installed launch, persisted starter documents and normal-close checks passed'
 } finally {
     if ($process -and -not $process.HasExited) { $process.Kill(); $process.WaitForExit() }
     if ($certificate) { Remove-Item -LiteralPath ('Cert:\CurrentUser\My\' + $certificate.Thumbprint) -DeleteKey -Force }

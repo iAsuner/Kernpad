@@ -289,7 +289,7 @@ powershell -File Windows/build.ps1
 dotnet run --project Windows/Kernpad.Smoke -- --workflows Windows/Artifacts/workflows
 ```
 
-The build script runs shared Web and native storage checks, then publishes a self-contained x64 package. `--workflows` exercises Chinese and English sequences with a temporary synthetic library, producing results and screenshots. `Windows/test-self-sign.ps1` validates an isolated self-signed copy. Self-signing does not add a trusted root or establish SmartScreen reputation.
+The build script runs shared Web and native storage checks, then publishes a self-contained x64 package. `--workflows` exercises Chinese and English sequences with a temporary synthetic library, producing results and screenshots. Run `Windows/test-self-sign.ps1` only in a fresh, disposable Windows test account; it refuses an existing Kernpad data directory. It checks the signature, tamper rejection, actual window startup, persisted example documents and normal shutdown. Self-signing does not add a trusted root or establish SmartScreen reputation.
 
 ### Changes and tests
 

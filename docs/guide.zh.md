@@ -289,7 +289,7 @@ powershell -File Windows/build.ps1
 dotnet run --project Windows/Kernpad.Smoke -- --workflows Windows/Artifacts/workflows
 ```
 
-构建脚本运行共享 Web 与原生存储检查，再发布自包含 x64 包。`--workflows` 使用临时合成资料库执行中英文连续操作，生成结果与截图。Windows 自签名验证脚本为 `Windows/test-self-sign.ps1`；自签名不自动加入信任根，也不会获得 SmartScreen 信誉。
+构建脚本运行共享 Web 与原生存储检查，再发布自包含 x64 包。`--workflows` 使用临时合成资料库执行中英文连续操作，生成结果与截图。Windows 自签名验证脚本为 `Windows/test-self-sign.ps1`，仅在全新的可丢弃 Windows 测试账号中运行；发现已有 Kernpad 资料目录时会停止。它检查签名、篡改拒绝、真实窗口启动、示例文档落盘与正常退出。自签名不自动加入信任根，也不会获得 SmartScreen 信誉。
 
 ### 修改与测试
 
