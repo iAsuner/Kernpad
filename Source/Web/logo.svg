@@ -1,0 +1,14 @@
+<svg viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="512" height="512" rx="115" fill="url(#tile_bg)"/>
+  <path d="M256 68L416 140V268C416 362 346 426 256 452C166 426 96 362 96 268V140L256 68Z" fill="url(#shield_bg)" stroke="url(#shield_stroke)" stroke-width="10"/>
+  <path d="M172 156C172 147.163 179.163 140 188 140H216C224.837 140 232 147.163 232 156V210L214 224L232 238V272L212 288L232 304V348C232 356.837 224.837 364 216 364H188C179.163 364 172 356.837 172 348V156Z" fill="url(#gold_grad)"/>
+  <path d="M252 246L332 148C338 141 348 140 356 146C364 152 365 163 358 171L294 250L252 246Z" fill="#0EA5E9"/>
+  <path d="M252 246L294 250L362 336C368 344 366 356 357 362C348 368 336 366 329 357L252 258V246Z" fill="url(#cyan_grad)"/>
+  <defs>
+    <linearGradient id="tile_bg" x1="256" y1="0" x2="256" y2="512" gradientUnits="userSpaceOnUse"><stop stop-color="#FAFAFB"/><stop offset="1" stop-color="#E9EAED"/></linearGradient>
+    <linearGradient id="shield_bg" x1="256" y1="68" x2="256" y2="452" gradientUnits="userSpaceOnUse"><stop stop-color="#FFFFFF"/><stop offset="1" stop-color="#E3E9EE"/></linearGradient>
+    <linearGradient id="shield_stroke" x1="96" y1="68" x2="416" y2="452" gradientUnits="userSpaceOnUse"><stop stop-color="#E7AD28"/><stop offset="0.5" stop-color="#38BDF8"/><stop offset="1" stop-color="#A8B7C4"/></linearGradient>
+    <linearGradient id="gold_grad" x1="172" y1="140" x2="232" y2="364" gradientUnits="userSpaceOnUse"><stop stop-color="#FBBF24"/><stop offset="1" stop-color="#D97706"/></linearGradient>
+    <linearGradient id="cyan_grad" x1="252" y1="246" x2="364" y2="364" gradientUnits="userSpaceOnUse"><stop stop-color="#38BDF8"/><stop offset="1" stop-color="#0284C7"/></linearGradient>
+  </defs>
+</svg>

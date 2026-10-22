@@ -1,0 +1,18 @@
+* text=auto
+*.md text eol=lf
+*.py text eol=lf
+*.sh text eol=lf
+*.swift text eol=lf
+*.cs text eol=lf
+*.csproj text eol=lf
+*.ps1 text eol=lf
+*.cjs text eol=lf
+*.js text eol=lf
+*.css text eol=lf
+*.html text eol=lf
+*.yml text eol=lf
+*.svg text eol=lf
+*.png binary
+*.mp4 binary
+Source/Web/lucide.min.js linguist-vendored
+Source/Web/platform-icons.js linguist-vendored

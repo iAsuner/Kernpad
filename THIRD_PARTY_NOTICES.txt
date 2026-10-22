@@ -1,0 +1,16 @@
+Original Kernpad code is licensed under MIT; see LICENSE.
+
+Lucide 0.468.0: bundled UI icons, ISC license with Feather attribution.
+Source: https://github.com/lucide-icons/lucide
+Notice: Source/Web/LUCIDE-LICENSE.txt
+
+Simple Icons 16.0.0: selected platform marks, CC0 with brand-specific rights and guidelines.
+Source: https://github.com/simple-icons/simple-icons
+Notice: Source/Web/PLATFORM-ICONS-LICENSE.txt
+
+Brand marks do not imply affiliation or endorsement. Third-party rights are not replaced by the Kernpad license. Test images and video are synthetic fixtures.
+
+Microsoft.Web.WebView2 SDK 1.0.4258.31: native Windows embedded browser SDK.
+Source: https://www.nuget.org/packages/Microsoft.Web.WebView2/1.0.4258.31
+Notices: Windows/ThirdParty/WEBVIEW2-LICENSE.txt and WEBVIEW2-NOTICE.txt
+The Edge WebView2 Runtime is installed separately under Microsoft's terms.

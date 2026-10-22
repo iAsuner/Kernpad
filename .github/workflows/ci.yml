@@ -1,0 +1,134 @@
+name: CI
+on:
+  push:
+    branches: [main, 'codex/**']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  portable-web:
+    name: JavaScript / ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.11'
+      - name: Check repository hygiene
+        run: python Source/check-repository.py
+      - name: Run portable JavaScript regressions (no native application)
+        run: python Source/test-web.py
+
+  macos:
+    name: macOS / Swift, WebKit and build
+    runs-on: macos-14
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.11'
+      - run: python3 Source/check-repository.py
+      - name: Run native and JavaScript regressions
+        run: zsh Source/test.sh
+      - name: Run media, WebKit and PDF integration
+        timeout-minutes: 10
+        run: zsh Source/test-documents.sh
+      - name: Build and verify ad-hoc signed application
+        run: zsh Source/build.sh
+      - name: Preserve synthetic layout evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: macOS-document-layout-evidence
+          retention-days: 7
+          path: |
+            Build/layout-acceptance.pdf
+            Build/layout-screen.png
+            Build/layout-preview.html
+            Build/layout-metrics.json
+      # Hosted runners do not validate Touch ID or physical Secure Enclave policy.
+
+  windows-native:
+    name: Windows / native, WebView2 and package
+    runs-on: windows-latest
+    timeout-minutes: 25
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      DOTNET_GENERATE_ASPNET_CERTIFICATE: 'false'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: '10.0.x'
+      - run: python Source/build-web.py
+      - name: Native crypto, storage, recovery and Swift interoperability
+        run: dotnet run --project Windows/Kernpad.Tests/Kernpad.Tests.csproj -- Source/Tests/Fixtures/interop-v3-backup.json Windows/Artifacts
+      - name: Ensure official WebView2 Runtime
+        shell: pwsh
+        run: |
+          $runtime = Get-ChildItem "${env:ProgramFiles(x86)}/Microsoft/EdgeWebView/Application/*/msedgewebview2.exe" -ErrorAction SilentlyContinue
+          if (-not $runtime) {
+            $installer = Join-Path $env:RUNNER_TEMP 'MicrosoftEdgeWebview2Setup.exe'
+            Invoke-WebRequest 'https://go.microsoft.com/fwlink/p/?LinkId=2124703' -OutFile $installer
+            $signature = Get-AuthenticodeSignature $installer
+            if ($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Subject -notmatch 'Microsoft Corporation') { throw 'Invalid Microsoft installer signature' }
+            $process = Start-Process $installer -ArgumentList '/silent','/install' -Wait -PassThru
+            if ($process.ExitCode -notin @(0,3010)) { throw "WebView2 install failed: $($process.ExitCode)" }
+          }
+      - name: Real isolated WPF, WebView2, clipboard, PDF and lock acceptance
+        timeout-minutes: 5
+        run: dotnet run --project Windows/Kernpad.Smoke/Kernpad.Smoke.csproj -- Source/Tests/Fixtures/interop-v3-backup.json Windows/Artifacts
+      - name: Chinese and English temporary-note and template workflows
+        timeout-minutes: 6
+        run: dotnet run --project Windows/Kernpad.Smoke/Kernpad.Smoke.csproj -- --workflows Windows/Artifacts/workflows
+      - name: Package native Windows client
+        run: powershell -File Windows/build.ps1 -SkipTests
+      - name: Self-sign and launch an isolated installed copy
+        timeout-minutes: 3
+        run: powershell -File Windows/test-self-sign.ps1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: Kernpad-1.0.0-Windows
+          retention-days: 7
+          path: |
+            Windows/Artifacts/Kernpad-1.0.0-win-x64.zip
+            Windows/Artifacts/windows-ui-result.json
+            Windows/Artifacts/windows-editor.png
+            Windows/Artifacts/windows-smoke.pdf
+            Windows/Artifacts/windows-interop.json
+            Windows/Artifacts/windows-self-sign-result.json
+            Windows/Artifacts/windows-installed-ui.json
+            Windows/Artifacts/windows-installed-ui.png
+            Windows/Artifacts/workflows/

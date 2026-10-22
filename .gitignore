@@ -1,0 +1,42 @@
+.DS_Store
+/Build/
+/*.app/
+/*.zip
+/work/
+*.dSYM/
+*.xcuserstate
+xcuserdata/
+__pycache__/
+*.pyc
+.env
+.env.*
+!.env.example
+*.p12
+*.pfx
+*.mobileprovision
+*.provisionprofile
+*.kernpad
+# Generated resources: edit sources and run Source/build-web.py.
+/Source/Web/app.js
+/Source/Web/app.css
+/Source/Web/index.html
+/Kernpad-logo.png
+/Kernpad-logo.svg
+/Kernpad-icon-256.png
+# Local configuration, diagnostics, credentials and private evidence.
+.vscode/
+.idea/
+*.log
+*.pem
+*.key
+.coverage
+/coverage/
+# .NET build artifacts.
+**/bin/
+**/obj/
+/Windows/Artifacts/
+
+# Unreviewed screenshot and measurement outputs remain local.
+# Curated synthetic screenshots are stored in docs/images.
+/docs/screenshots/
+/docs/*-????-??-??.json

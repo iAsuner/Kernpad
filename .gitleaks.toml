@@ -1,0 +1,11 @@
+title = "Kernpad source secret scanning"
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Public RFC 6238 SHA-1 test seed, used only for synthetic examples and assertions"
+condition = "AND"
+targetRules = ["generic-api-key"]
+paths = ['''(^|/)(Source/Web/credential-tools\.js|Source/Tests/AppEditorTests\.js|Windows/Kernpad\.Tests/Program\.cs)$''']
+regexTarget = "secret"
+regexes = ['''^GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ$''']

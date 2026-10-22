@@ -1,0 +1,15 @@
+const fs=require('fs'),path=require('path'),vm=require('vm'),assert=require('assert/strict');
+const context={};vm.createContext(context);vm.runInContext(fs.readFileSync(path.join(__dirname,'../Web/shortcuts-model.js'),'utf8'),context);
+let count=0;const check=(name,fn)=>{fn();count++;};
+check('empty overrides preserve all defaults',()=>assert.equal(Object.keys(context.validateShortcuts({})).length,0));
+check('valid remap',()=>assert.equal(context.validateShortcuts({new:'primary+shift+n'}).new,'primary+shift+n'));
+for(const value of [{new:'primary+s'},{new:'n'},{new:'primary+q'},{save:'primary+z'},{save:'primary+shift+z'},{save:'primary+ctrl+s'},{save:'primary+shift+shift+s'},{save:'primary+alt+shift+s'},{save:'primary+é'},{save:'primary+delete'},{save:12},{constructor:'primary+j'},[],null])check('invalid or conflicting binding rejected',()=>assert.throws(()=>context.validateShortcuts(value)));
+const event={key:'n',code:'KeyN',metaKey:true,ctrlKey:false,altKey:false,shiftKey:false};
+check('Mac command',()=>assert.equal(context.shortcutChord(event),'primary+n'));
+check('Windows control',()=>assert.equal(context.shortcutChord({...event,metaKey:false,ctrlKey:true},true),'primary+n'));
+check('incorrect platform modifier',()=>assert.equal(context.shortcutChord(event,true),''));
+for(const extra of [{isComposing:true},{repeat:true},{ctrlKey:true},{getModifierState:()=>true}])check('composition repeat AltGraph and extra modifiers ignored',()=>assert.equal(context.shortcutChord({...event,...extra}),''));
+check('shifted digits retain binding identity',()=>assert.equal(context.shortcutChord({...event,key:'!',code:'Digit1',shiftKey:true}),'primary+shift+1'));
+check('Mac hint',()=>assert.equal(context.shortcutLabel('primary+shift+l',false),'⌘⇧L'));
+check('Windows hint',()=>assert.equal(context.shortcutLabel('primary+shift+l',true),'Ctrl + Shift + L'));
+console.log(`${count} shortcut conflicts / platform / composition / hint checks passed`);

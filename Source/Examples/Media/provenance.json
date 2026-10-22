@@ -1,0 +1,20 @@
+{
+  "license": "MIT (same as this repository)",
+  "subjects": "Fictional scenes; no real locations, credentials or personal data",
+  "images": {
+    "alpine-dawn.png": {
+      "method": "OpenAI built-in image generation",
+      "prompt": "Wide editorial photograph of an imaginary alpine lake at dawn, a timber cabin, evergreen forest, blue grey mountains and warm peach light. Calm water, natural texture, restrained palette. No people, text, logos or watermark."
+    },
+    "studio-morning.png": {
+      "method": "OpenAI built-in image generation",
+      "prompt": "Editorial still life of a sunlit minimal creative studio table, blank linen notebook, ceramic coffee cup, branches in glass, paper swatches and pale oak. Warm ivory, sage and charcoal, natural texture, soft shadows. No people, readable text, logos or watermark."
+    }
+  },
+  "video": {
+    "file": "alpine-motion.mp4",
+    "method": "Original still-image animation from alpine-dawn.png using FFmpeg",
+    "description": "6-second silent slow zoom, H.264, 960x540, 25fps; not filmed footage",
+    "command": "ffmpeg -loop 1 -i alpine-dawn.png -vf scale=1920:-1,zoompan=z='1+0.00045*on':x='(iw-iw/zoom)/2':y='(ih-ih/zoom)/2':d=150:s=960x540:fps=25,format=yuv420p -t 6 -c:v libx264 -preset slow -crf 25 -movflags +faststart -an alpine-motion.mp4"
+  }
+}

@@ -1,0 +1,85 @@
+{
+  "application": "Kernpad 1.0.0",
+  "platform": "macOS",
+  "data": "Fresh isolated synthetic libraries; no personal data",
+  "capture": "Live WKWebView snapshot composed with native AppKit window chrome; document content is not redrawn",
+  "encoding": "Lossless WebP; decoded RGBA pixels verified against original PNG captures",
+  "languages": {
+    "zh": "Simplified Chinese UI and sample content",
+    "en": "English UI and sample content"
+  },
+  "files": {
+    "en/editor.webp": {
+      "sha256": "ecb1d14a7bad0d99a30ae1468abbdb939915cea9d2707318da9d08dd64f66467",
+      "bytes": 719238
+    },
+    "en/html.webp": {
+      "sha256": "2b65283c6d8943e3a769d7701ac17661a8a34cd209bb4ac4081901bb133a5739",
+      "bytes": 99474
+    },
+    "en/markdown.webp": {
+      "sha256": "0d340b9b28ff71963675092cc3fa2521eba109da5e84329244b4286c3377786f",
+      "bytes": 96406
+    },
+    "en/pdf.webp": {
+      "sha256": "f890b4f9466ea4d53ee9301334e2270452336d6f3e27a01543e81c1a0728f934",
+      "bytes": 257510
+    },
+    "en/template-fields.webp": {
+      "sha256": "b8e859d30f9d95239090a9beeea6d741f5af3d7d0b40f8444a27f9b616408c6e",
+      "bytes": 114152
+    },
+    "en/templates.webp": {
+      "sha256": "13242def96f69c3bb969d6c77eaa78035f9b414931a950c33375dbd5c3901bd9",
+      "bytes": 75496
+    },
+    "en/vault-list.webp": {
+      "sha256": "5212bd0fc7474e125c39381618d3442b592aa11f8c3c1732c1da303063ce1fc9",
+      "bytes": 73590
+    },
+    "en/vault.webp": {
+      "sha256": "2c1a5032e00cd6af10fcef059c74fbdc5cf7be46ba200b06ed7f831712cc5868",
+      "bytes": 86618
+    },
+    "en/writing.webp": {
+      "sha256": "ef909529cd999b7f98d7ca625cb3612f907ccb0b60139c5dae48dd8f819a165e",
+      "bytes": 1039310
+    },
+    "zh/editor.webp": {
+      "sha256": "7241e7c0595e986ce54af3995fdf4a75749b0466e4047654a0aba925a63df0b0",
+      "bytes": 739892
+    },
+    "zh/html.webp": {
+      "sha256": "ba307e0750e76ccd5be5362153c5085bf6801f58f188d9d6ef19c7661ebe0796",
+      "bytes": 114206
+    },
+    "zh/markdown.webp": {
+      "sha256": "3b04c4bebb1a60b3d60b5cfdbd508e437bd431b7f66c29e8714113ab299549bc",
+      "bytes": 103790
+    },
+    "zh/pdf.webp": {
+      "sha256": "cd509760cb9347f5f1acaf018dd12943cd691d7014ef4d72c95b1271a16fe77e",
+      "bytes": 260016
+    },
+    "zh/template-fields.webp": {
+      "sha256": "477e97c7709b591ecdf2bae89d8e353f3919843408cb898b80288b3d99e87836",
+      "bytes": 119696
+    },
+    "zh/templates.webp": {
+      "sha256": "c2a4fc04fac23371514cd7d894789db38af6ef57c47e39e5370aecab0a13ddca",
+      "bytes": 81336
+    },
+    "zh/vault-list.webp": {
+      "sha256": "67833863db5359a16ce023c803c3c7de7f761a312827fb08059937f254fe5234",
+      "bytes": 77880
+    },
+    "zh/vault.webp": {
+      "sha256": "9bd43cb167f7bcf1b410a2ccfad8e05424c8a290cf527407c5532052fcc27a54",
+      "bytes": 90170
+    },
+    "zh/writing.webp": {
+      "sha256": "e6685293a3c241576c378bc8ea896b34804bce72b4715a5efe703b95b51409e3",
+      "bytes": 1031660
+    }
+  }
+}

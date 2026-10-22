@@ -1,0 +1,7 @@
+/* Windows-native font fallback without changing user-authored formatting. */
+html[data-native-platform="windows"] #kernpad-root.mj-v5 {
+ font-family:"Segoe UI","Microsoft YaHei UI","Microsoft YaHei",Arial,sans-serif;
+}
+html[data-native-platform="windows"] #kernpad-root .mj-search kbd {
+ font-family:"Segoe UI",sans-serif;
+}

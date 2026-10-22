@@ -1,0 +1,8 @@
+#kernpad-root .mj-example-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+#kernpad-root .mj-example-card{overflow:hidden;border:1px solid var(--mj-line);border-radius:10px;background:var(--mj-bg);display:flex;flex-direction:column;align-items:flex-start;padding-bottom:14px}
+#kernpad-root .mj-example-card>img{width:100%;height:112px;object-fit:cover}
+#kernpad-root .mj-example-format{width:100%;height:112px;display:grid;place-items:center;background:var(--mj-fill);color:var(--mj-accent);font:32px Menlo,monospace}
+#kernpad-root .mj-example-card>strong{font-size:13px;line-height:1.5;padding:12px 14px 0}
+#kernpad-root .mj-example-card>p{font-size:12px;line-height:1.6;color:var(--mj-muted);padding:5px 14px 12px;flex:1}
+#kernpad-root .mj-example-card>button{margin:0 14px}
+@media(max-width:620px){#kernpad-root .mj-example-grid{grid-template-columns:1fr}}

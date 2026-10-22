@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <Version>1.0.0</Version>
+    <AssemblyName>Kernpad</AssemblyName>
+    <Product>Kernpad</Product>
+    <Title>Kernpad</Title>
+    <ApplicationIcon>Kernpad.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+  </PropertyGroup>
+  <ItemGroup>
+    <Resource Include="Kernpad.ico" />
+    <ProjectReference Include="../Kernpad.Core/Kernpad.Core.csproj" />
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4258.31" />
+    <Content Include="../../Source/Web/index.html;../../Source/Web/app.js;../../Source/Web/app.css;../../Source/Web/lucide.min.js;../../Source/Web/logo.svg;../../Source/Web/LUCIDE-LICENSE.txt;../../Source/Web/PLATFORM-ICONS-LICENSE.txt">
+      <Link>Web/%(Filename)%(Extension)</Link><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="../../LICENSE;../../THIRD_PARTY_NOTICES.txt;../ThirdParty/WEBVIEW2-LICENSE.txt;../ThirdParty/WEBVIEW2-NOTICE.txt"><Link>%(Filename)%(Extension)</Link><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+  </ItemGroup>
+</Project>

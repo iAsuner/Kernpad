@@ -1,0 +1,41 @@
+/* Writing uses the available canvas; paper dimensions belong to PDF preview. */
+#kernpad-root.mj-v5 .mj-paper{width:100%;max-width:none;box-sizing:border-box}
+#kernpad-root.mj-v5 #mj-blocks>.mj-layout-selected{box-shadow:inset 2px 0 0 color-mix(in srgb,var(--mj-blue) 40%,transparent);border-radius:2px}
+#kernpad-root .mj-retained-selection{position:absolute;pointer-events:none;background:color-mix(in srgb,var(--mj-blue) 17%,transparent);z-index:1;border-radius:2px}
+#kernpad-root .mj-document-name{display:flex;align-items:center;gap:7px;max-width:100%;border:0;background:transparent;color:inherit;padding:5px 0;font:inherit;text-align:left;cursor:text}
+#kernpad-root .mj-document-name span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#kernpad-root .mj-document-name svg{flex:none;width:12px;height:12px;color:var(--mj-muted)}
+#kernpad-root .mj-document-name-input{width:100%;font:inherit;padding:5px 7px;border:1px solid var(--mj-line);border-radius:5px;background:var(--mj-bg);color:inherit}
+#kernpad-root .mj-selection-actions{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:6px;margin-left:auto}
+#kernpad-root .mj-record-selectable{position:relative;cursor:pointer}
+#kernpad-root .mj-record-frame{position:relative;min-width:0}
+#kernpad-root :is(.mj-note-grid,.mj-table-wrap):focus{outline:none}
+#kernpad-root :is(.mj-note-grid,.mj-table-wrap):focus-visible{outline:1px solid var(--mj-muted);outline-offset:3px;border-radius:6px}
+#kernpad-root.mj-v5 .mj-record-frame>.mj-note-card{width:100%;height:100%}
+#kernpad-root input.mj-record-select-mark{appearance:none;position:absolute;left:16px;top:16px;width:17px;height:17px;padding:0;box-sizing:border-box;margin:0;border:1px solid var(--mj-muted);border-radius:50%;background:var(--mj-bg);cursor:pointer;z-index:2;display:grid;place-items:center;opacity:0;pointer-events:none}
+/* Selection must update immediately, including in an inactive WebKit window. */
+#kernpad-root.mj-v5 .mj-record-select-mark{transition:none}
+#kernpad-root .mj-selecting-records>.mj-record-select-mark,#kernpad-root .mj-record-select-mark:focus-visible{opacity:1;pointer-events:auto}
+#kernpad-root .mj-selecting-records>.mj-note-card>span>svg:first-child{visibility:hidden}
+#kernpad-root .mj-record-frame:has(.mj-record-select-mark:focus-visible)>.mj-note-card>span>svg:first-child{visibility:hidden}
+#kernpad-root .mj-record-select-mark:checked{border-color:var(--mj-accent);background:var(--mj-accent);color:white}
+#kernpad-root .mj-record-select-mark:checked:after{content:'✓';font-size:12px;line-height:1}
+#kernpad-root .mj-record-select-mark:focus-visible{outline:2px solid var(--mj-accent);outline-offset:3px}
+#kernpad-root .mj-record-picked{background:var(--mj-selected)!important;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--mj-accent) 25%,transparent)}
+#kernpad-root.mj-v5 .mj-table tbody tr.mj-record-picked>td{background:color-mix(in srgb,var(--mj-accent) 8%,var(--mj-bg))}
+#kernpad-root .mj-selected-remove{margin:0 0 12px}
+#kernpad-root .mj-trash-confirm-list{max-height:220px;overflow:auto;padding-left:24px;line-height:1.8}
+#kernpad-root .mj-field-table [data-def-key]{width:150px;font:11px Menlo,monospace}
+#kernpad-root .mj-field-table [aria-invalid=true]{border-color:var(--mj-red)}
+
+#kernpad-root tr:has(.mj-record-select-mark)>td:first-child{position:relative}
+#kernpad-root tr .mj-record-select-mark{left:16px;top:50%;transform:translateY(-50%)}
+#kernpad-root td.mj-selecting-records :is(.mj-type-icon,.mj-platform-logo),#kernpad-root td:has(.mj-record-select-mark:focus-visible) :is(.mj-type-icon,.mj-platform-logo){visibility:hidden}
+#kernpad-root .mj-record-marquee{position:fixed;pointer-events:none;z-index:40;border:1px solid color-mix(in srgb,var(--mj-blue) 50%,transparent);background:color-mix(in srgb,var(--mj-blue) 10%,transparent);border-radius:2px}
+#kernpad-root.mj-record-drag-selecting{user-select:none;-webkit-user-select:none}
+#kernpad-root .mj-docbar [data-document-save]:disabled{opacity:.5;cursor:default;background:transparent}
+#kernpad-root .mj-temporary-duration{margin:12px 0 0}
+#kernpad-root .mj-note-expiration{display:flex;align-items:center;flex-wrap:wrap;gap:6px 14px;padding:10px 12px;margin:0 0 20px;background:var(--mj-fill);border-radius:8px}
+#kernpad-root.mj-v5 .mj-note-expiration button{padding:0;border:0;background:transparent;box-shadow:none;font-size:12px;color:var(--mj-text)}
+#kernpad-root .mj-note-expiration small{font-size:11px;line-height:1.5;color:var(--mj-muted)}
+#kernpad-root [data-temporary-error]{color:var(--mj-red)}

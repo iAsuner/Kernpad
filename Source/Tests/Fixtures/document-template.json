@@ -1,0 +1,25 @@
+{
+  "custom": {
+    "custom-layout": {
+      "id": "custom-layout",
+      "name": "Synthetic reusable layout",
+      "group": "other",
+      "family": "account",
+      "pattern": "{$custom.heading}----{$custom.token}",
+      "fields": [
+        {"key": "custom.heading", "label": "Heading", "kind": "text", "target": "c_heading:text"},
+        {"key": "custom.token", "label": "Token", "kind": "secret", "target": "c_token:value"}
+      ],
+      "documentTemplate": {
+        "version": 1,
+        "area": "vault",
+        "documentOptions": {"title": false, "summary": false},
+        "blocks": [
+          {"componentID": "c_heading", "type": "heading", "text": "Ordinary instructions", "layout": {"span": 6}, "surface": {"background": "#edf3ff"}},
+          {"componentID": "c_form", "type": "form", "title": "Credentials", "fields": [{"componentID": "c_token", "key": "custom.token", "label": "Token", "kind": "secret", "secret": true, "value": ""}]},
+          {"componentID": "c_otp", "type": "otp", "title": "Authenticator", "seed": ""}
+        ]
+      }
+    }
+  }
+}
