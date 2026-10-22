@@ -1,7 +1,7 @@
-let customPlatforms={},platformDraft=null,platformReturn=null,contextRecordID=null,pendingTrashPurge=null;
+let customPlatforms={},platformDraft=null,platformReturn=null,contextRecordID=null,pendingTrashPurge=null,relationDraft=null;
 function allPlatforms(){return [...platformCatalog.filter(p=>p.id!=='custom'),...Object.values(customPlatforms),platformCatalog.find(p=>p.id==='custom')];}
 function closeRecordMenu(){root.querySelector('.mj-record-menu')?.remove();contextRecordID=null;}
-function clearExperience(){customPlatforms={};platformDraft=null;platformReturn=null;pendingTrashPurge=null;closeRecordMenu();}
+function clearExperience(){customPlatforms={};platformDraft=null;platformReturn=null;pendingTrashPurge=null;relationDraft=null;closeRecordMenu();}
 function platformLogo(r){
  const p=platformFor(r),upload=safePlatformLogo(p?.logo);
  if(upload)return `<span class="mj-platform-logo"><img src="${upload}" alt="" draggable="false"></span>`;
@@ -56,21 +56,46 @@ function codeCardHeading(r,label=''){
  const account=listAccountOf(r),field=r.fields.find(f=>f.value===account),display=account&&account!=='—'?visibleValue(account,!!field?.secret):r.name;
  return `<button class="mj-code-identity" data-open="${escape(r.id)}">${platformLogo(r)}<span><strong class="mj-user-content">${escape(display)}</strong><small class="mj-user-content">${escape(r.name+((label||platformFor(r)?.name)?ui('（',' (')+(label||platformFor(r)?.name)+ui('）',')'):''))}</small></span>${icon('chevron-right')}</button>`;
 }
-function relationCandidates(current,query=''){
+function relationCandidates(current,query='',matchedIDs=new Set()){
  const text=query.trim().toLocaleLowerCase();
- return records.filter(r=>r.id!==current.id&&(!isProtected(r)||vaultUnlocked)&&(!text||recordSearchParts(r).join(' ').toLocaleLowerCase().includes(text)))
+ return records.filter(r=>r.id!==current.id&&(!isProtected(r)||vaultUnlocked)&&(!text||matchedIDs.has(r.id)||recordSearchParts(r).join(' ').toLocaleLowerCase().includes(text)))
   .sort((a,b)=>Number(current.refs.includes(b.id))-Number(current.refs.includes(a.id)));
 }
 function renderRelationResults(query=''){
  const current=selected(),list=$('#mj-relation-results');if(!current||!list)return;
- const matches=relationCandidates(current,query);
- list.innerHTML=matches.map(r=>`<label class="mj-relation-option">${platformLogo(r)}<span><strong class="mj-user-content">${escape(recordDisplayName(r))}</strong><small class="mj-user-content">${escape([platformFor(r)?.name||tr(type(r).name),visibleValue(listAccountOf(r),!!r.fields.find(f=>f.value===listAccountOf(r))?.secret)].filter(value=>value&&value!=='—').join(ui('，',', ')))}</small></span><input type="checkbox" data-relation="${escape(r.id)}" aria-label="${escape(ui('关联 '+r.name,'Link '+r.name))}" ${current.refs.includes(r.id)?'checked':''}></label>`).join('')||`<div class="mj-empty">${ui('没有找到匹配记录','No matching records')}</div>`;
+ const matches=relationCandidates(current,query,relationDraft?.search?.query===query?relationDraft.search.ids:new Set());
+ list.innerHTML=matches.map(r=>`<label class="mj-relation-option">${platformLogo(r)}<span><strong class="mj-user-content">${escape(recordDisplayName(r))}</strong><small class="mj-user-content">${escape([platformFor(r)?.name||tr(type(r).name),visibleValue(listAccountOf(r),fieldIsSecret(listAccountField(r)||{}))].filter(value=>value&&value!=='—').join(ui('，',', ')))}</small></span><input type="checkbox" data-relation-choice="${escape(r.id)}" aria-label="${escape(ui('关联 '+recordDisplayName(r),'Link '+recordDisplayName(r)))}" ${relationDraft?.refs.has(r.id)?'checked':''}></label>`).join('')||`<div class="mj-empty">${ui('没有找到匹配记录','No matching records')}</div>`;
  icons();
+ const status=$('#mj-relation-status'),search=relationDraft?.search;if(status)status.textContent=search?.pending?ui('正在本机搜索…','Searching locally…'):search?.error?ui('搜索失败，请重新输入关键词。','Search failed. Enter your query again.'):search?.truncated?ui('最多显示 100 条密码库匹配，请缩小关键词。','Showing up to 100 vault matches. Refine your query.'):'';
+}
+function searchRelationRecords(query){
+ const draft=relationDraft;if(!draft)return;clearTimeout(draft.search?.timer);
+ const search={query,ids:new Set(),pending:!!(query.trim()&&nativeInfo.recordProtocol&&vaultUnlocked&&records.some(r=>r._sealed)),error:false,truncated:false};draft.search=search;renderRelationResults(query);
+ if(!search.pending)return;
+ const current=()=>relationDraft===draft&&draft.search===search&&draft.epoch===privacyEpoch&&vaultUnlocked&&state.modal==='relations'&&selected()?.id===draft.id;
+ search.timer=setTimeout(async()=>{
+  try{
+   if(!current())return;const reply=await nativeCall('searchRecords',{query:query.trim(),session:nativeInfo.session});if(!current())return;
+   if(!Array.isArray(reply.ids)||reply.ids.length>100||reply.ids.some(id=>typeof id!=='string'))throw Error('Invalid search response');
+   search.ids=new Set(reply.ids);search.truncated=!!reply.truncated;
+  }catch{if(current())search.error=true;}
+  finally{if(current()){search.pending=false;renderRelationResults(query);}}
+ },180);
 }
 function showRelations(){
- const current=selected();if(!current||isProtected(current)&&!vaultUnlocked)return;state.modal='relations';
- modal(ui('关联其他记录','Link records'),ui('选择要关联的资料，之后可直接查看原记录。','Choose records to link so you can open their original details.'),`<label class="mj-relation-search">${icon('search')}<input type="search" class="mj-field-input" data-relation-search aria-label="${ui('搜索关联记录','Search records to link')}" placeholder="${ui('搜索名称、账号或平台','Search by name, account or platform')}"></label><div id="mj-relation-results" class="mj-relation-results"></div>`,`<button class="mj-primary" data-action="finish-relations">${tr('完成')}</button>`);
+ const current=selected();if(!current||current._sealed||templateDesign||isProtected(current)&&!vaultUnlocked)return;state.modal='relations';
+ relationDraft={id:current.id,epoch:privacyEpoch,refs:new Set(current.refs)};
+ modal(ui('关联其他记录','Link records'),ui('选择已有邮箱或账号。关联只引用原记录，不会复制密码；取消不会更改当前关联。','Choose existing email or account records. Links reference the originals without duplicating passwords. Cancel leaves links unchanged.'),`<label class="mj-relation-search">${icon('search')}<input type="search" class="mj-field-input" data-relation-search aria-label="${ui('搜索关联记录','Search records to link')}" placeholder="${ui('搜索名称、账号或平台','Search by name, account or platform')}"></label><p id="mj-relation-status" class="mj-settings-note" role="status"></p><div id="mj-relation-results" class="mj-relation-results"></div>`,`<button class="mj-button" data-action="close-modal">${tr('取消')}</button><button class="mj-primary" data-action="finish-relations">${ui('应用关联','Apply links')}</button>`);
  renderRelationResults();
+}
+function updateRecordRelations(current,refs){
+ if(!current||current!==selected()||current._sealed||templateDesign||isProtected(current)&&!vaultUnlocked)return false;
+ const next=[...new Set(refs)].filter(id=>id!==current.id);
+ if(next.length===current.refs.length&&next.every(id=>current.refs.includes(id)))return false;
+ snapshotEditor();current.refs=next;
+ // Manual-save users need the normal Save action after editing links in Read mode.
+ if(!autoSaveEnabled())docMode='edit';
+ return true;
 }
 function renderCodes(){
  const all=filtered().map(r=>nativeInfo.recordProtocol&&isProtected(r)?sealedSummary(r):r),seconds=30-Math.floor(Date.now()/1000)%30,size=tableCapacity($('#mj-workspace').clientHeight);
@@ -88,6 +113,10 @@ function polishExperience(){
  $$('.mj-note-card').forEach(card=>{const r=record(card.dataset.open),preview=card.querySelector('p');if(r&&preview)preview.textContent=r.summary||richPlainText(r.blocks.find(b=>b.text)?.text||'')||tr('空白便签');});
  closeRecordMenu();
  updateFieldCopyButtons();
+ if(state.view==='document'&&selected()&&!templateDesign){
+  const current=selected(),heading=$('.mj-document-kind');
+  if(heading&&!heading.querySelector('[data-action="relations"]'))heading.insertAdjacentHTML('beforeend',`<button class="mj-text-button mj-record-relations" data-action="relations" aria-haspopup="dialog">${icon('link-2')}${ui('关联记录','Linked records')}${current.refs.length?` <span>(${current.refs.length})</span>`:''}</button>`);
+ }
  if(state.view==='document'&&selected()&&isEditing()){
   const section=$('.mj-doc-section h2');if(section&&!section.querySelector('[data-exp="extra-fields"]'))section.insertAdjacentHTML('beforeend',`<button class="mj-text-button" data-exp="extra-fields">${ui('添加预设字段…','Add preset fields…')}</button>`);
  }
@@ -163,6 +192,12 @@ window.addEventListener('keydown',event=>{
  if(['ArrowDown','ArrowUp','Home','End'].includes(event.key)){event.preventDefault();event.stopImmediatePropagation();const buttons=[...menu.querySelectorAll('button')],index=buttons.indexOf(document.activeElement);buttons[event.key==='Home'?0:event.key==='End'?buttons.length-1:(index+(event.key==='ArrowDown'?1:buttons.length-1))%buttons.length]?.focus();}
 },true);
 window.addEventListener('click',async event=>{
+ if(event.target.closest('[data-action="finish-relations"]')){
+  event.preventDefault();event.stopImmediatePropagation();const draft=relationDraft,current=selected();
+  if(!draft||draft.epoch!==privacyEpoch||draft.id!==current?.id)return;
+  const refs=[...draft.refs].filter(id=>current.refs.includes(id)||relationCandidates(current).some(r=>r.id===id));
+  const changed=updateRecordRelations(current,refs);closeModal();render();if(changed)remember();return;
+ }
  const command=event.target.closest('[data-record-menu]');
  if(command){event.preventDefault();event.stopImmediatePropagation();const r=record(contextRecordID)||trashedRecords.find(item=>item.id===contextRecordID),action=command.dataset.recordMenu;closeRecordMenu();if(!r||isProtected(r)&&!vaultUnlocked)return;
   if(action==='restore')restoreRecord(r.id);
@@ -199,8 +234,9 @@ window.addEventListener('click',async event=>{
  }catch(error){toast(action==='format-json'?ui('不是有效的 JSON，原内容已保留。','Invalid JSON. Original content preserved.'):String(error.message||error));}
 },true);
 function editPlatformDraft(draft){editPlatform(draft.id,draft);}
-root.addEventListener('input',event=>{const key=event.target.dataset.platformDraft;if(key&&platformDraft)platformDraft[key]=event.target.value;if(event.target.matches('[data-relation-search]'))renderRelationResults(event.target.value);if(event.target.matches('[data-field]'))updateFieldCopyButtons();});
+root.addEventListener('input',event=>{const key=event.target.dataset.platformDraft;if(key&&platformDraft)platformDraft[key]=event.target.value;if(event.target.matches('[data-relation-search]'))searchRelationRecords(event.target.value);if(event.target.matches('[data-field]'))updateFieldCopyButtons();});
 root.addEventListener('change',event=>{
+ if(event.target.matches('[data-relation-choice]')){const draft=relationDraft;if(!draft||draft.epoch!==privacyEpoch||draft.id!==selected()?.id)return;const id=event.target.dataset.relationChoice;if(!relationCandidates(selected()).some(r=>r.id===id))return;if(event.target.checked)draft.refs.add(id);else draft.refs.delete(id);}
  if(event.target.matches('[data-platform-draft]')&&platformDraft)platformDraft[event.target.dataset.platformDraft]=event.target.value;
  if(event.target.matches('[data-exp-page]')){state.page=Math.max(0,Number(event.target.value)-1);render();}
 });

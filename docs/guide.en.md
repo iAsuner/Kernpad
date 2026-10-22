@@ -131,6 +131,8 @@ Store accounts, passwords, email, servers, API credentials, payment-card details
 
 Fields have names, types, required flags and secrecy settings. Create platforms with a name, URL and local logo, and link other accounts or email records. Renaming a field in one record does not rename it elsewhere.
 
+Choose **Linked records** at the top of a record, search by name, account or platform, select records and choose **Apply links**. This entry is available in both reading and editing modes, including when there are no existing links. Cancel or close leaves links unchanged. Deselecting and applying removes a link without deleting or copying the original record or password. With auto-save off, applying links opens editing mode; choose **Save** to commit the changes. Link edits support undo and redo while editing.
+
 The unlocked list shows the primary account, public URL, password-presence indicator and current codes for the visible page. Secret account identifiers stay masked. Clicking a masked password copies it through native code; the list receives neither the password nor verification seed. TOTP supports Base32, SHA-1, six digits and a 30-second period. SMS codes are not TOTP.
 
 An authenticator in a public note may explicitly use public storage. Its seed is then plain text; confidential authenticators belong in the vault.

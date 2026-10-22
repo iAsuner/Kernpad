@@ -51,7 +51,7 @@ A server record can contain its login credentials, console links, deployment ste
 
 - **Fields you define:** edit names, types, required status and secrecy, or add a project ID, environment or other business field. Built-in templates cover 20 record types, including email, servers, databases, SSH, APIs, cards and software licenses.
 - **Platforms and useful links:** define a platform name, URL and local logo, then add shortcuts to sign-in, billing or administration pages within a record.
-- **Connected records:** link email or other accounts and follow those links to their details. Quick Paste can create or reuse linked email records; conflicting credentials or ambiguous addresses stop the write.
+- **Connected records:** choose **Linked records** at the top of a record to search for and connect email or other accounts. The entry is available when reading or editing; Cancel leaves existing links unchanged. Quick Paste can create or reuse linked email records; conflicting credentials or ambiguous addresses stop the write.
 - **Verification codes beside credentials:** view and copy current TOTP codes from a record or the unlocked list. Supported parameters are a Base32 seed, SHA-1, six digits and a 30-second period.
 - **A useful list view:** read the main account and public URL, or click a masked password to copy it without opening the record. Clipboard content is cleared after 30 seconds if it has not been replaced; this cannot retract content already read by another app.
 - **Search within defined boundaries:** find records by name, platform and fields. Unlocked body search matches records in the native host without a persistent plaintext body index; passwords and verification-code seeds are excluded.

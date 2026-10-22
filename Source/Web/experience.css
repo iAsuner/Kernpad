@@ -138,4 +138,5 @@
 #kernpad-root.mj-v5 .mj-relation-option strong{font-weight:500;line-height:20px}
 #kernpad-root.mj-v5 .mj-relation-option small{font-size:11px;color:var(--mj-muted);line-height:17px}
 #kernpad-root.mj-v5 .mj-relation-option input{accent-color:var(--mj-accent);flex-shrink:0}
+#kernpad-root.mj-v5 .mj-document-kind .mj-record-relations{margin-left:auto;flex-shrink:0;display:inline-flex;align-items:center;gap:5px;white-space:nowrap;font:inherit;padding:4px 6px}
 @media(prefers-reduced-motion:reduce){#kernpad-root.mj-v5 .mj-settings-content input[type=checkbox],#kernpad-root.mj-v5 .mj-settings-content input[type=checkbox]:before{transition:none}}

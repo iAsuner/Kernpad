@@ -208,7 +208,7 @@ function confirmRecordTrash(id){
 }
 function confirmUnlink(sourceId,targetId){
  const source=record(sourceId),target=record(targetId);if(!source||!target||isProtected(source)&&!vaultUnlocked)return;
- source.refs=source.refs.filter(id=>id!==targetId);render();remember();toast(tr('关联已解除'));
+ if(!updateRecordRelations(source,source.refs.filter(id=>id!==targetId)))return;render();remember();toast(tr('关联已解除'));
 }
 function platformPicker(r){
  const current=platformFor(r)?.id||'none';

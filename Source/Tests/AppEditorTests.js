@@ -128,6 +128,32 @@ $('[data-layout-position="center"]').click();check('center positioning leaves bl
  check('association navigation retains back history',state.history.includes(detailA.id));
  $('[data-action="back"]').click();await waitFor(()=>state.view==='document'&&state.selected===detailA.id);
  check('back navigation lazily reloads the prior record',record(detailB.id)._sealed&&window.__commands.filter(item=>item.command==='openRecord'&&item.payload.id===detailA.id).length===2);
+ for(const language of ['zh','en'])for(const mode of ['view','edit']){
+  locale=language;docMode=mode;layoutInspectorOpen=false;render();const entry=$('.mj-document-kind [data-action="relations"]');
+  check('link management stays visible without the layout sidebar: '+language+' '+mode,!!entry&&entry.getBoundingClientRect().width>50&&getComputedStyle(entry).visibility==='visible'&&entry.textContent.includes(language==='zh'?'关联记录':'Linked records'));
+  entry.click();check('the visible link entry opens the picker: '+language+' '+mode,!!$(`[data-relation-choice="${detailB.id}"]`)&&!$(`[data-relation-choice="${detailA.id}"]`));$('[data-action="close-modal"]').click();
+ }
+ locale='zh';docMode='view';layoutInspectorOpen=true;render();const linksOpenCount=window.__commands.filter(item=>item.command==='openRecord').length;
+ $('.mj-document-kind [data-action="relations"]').click();$(`[data-relation-choice="${detailB.id}"]`).click();
+ check('picking links does not mutate the record before Apply',selected().refs.includes(detailB.id));
+ const relationSearch=$('[data-relation-search]');relationSearch.value='no such synthetic record';relationSearch.dispatchEvent(new InputEvent('input',{bubbles:true}));relationSearch.value='';relationSearch.dispatchEvent(new InputEvent('input',{bubbles:true}));
+ check('pending selections survive filtering',!$(`[data-relation-choice="${detailB.id}"]`).checked);$('[data-action="close-modal"]').click();
+ check('cancel discards pending links and clears dialog state',selected().refs.includes(detailB.id)&&relationDraft===null);
+ $('.mj-document-kind [data-action="relations"]').click();window.__searchIDs=[detailB.id];const accountQuery=$('[data-relation-search]');accountQuery.value='lazy-b@example.invalid';accountQuery.dispatchEvent(new InputEvent('input',{bubbles:true}));await waitFor(()=>!relationDraft.search.pending);
+ check('account search finds sealed candidates through native ID matching',!!$(`[data-relation-choice="${detailB.id}"]`)&&record(detailB.id)._sealed&&window.__commands.some(item=>item.command==='searchRecords'&&item.payload.query==='lazy-b@example.invalid'));
+ accountQuery.value='stale synthetic query';accountQuery.dispatchEvent(new InputEvent('input',{bubbles:true}));$('[data-action="close-modal"]').click();window.__searchIDs=[];await new Promise(resolve=>setTimeout(resolve,220));check('closing the link picker cancels its queued search',relationDraft===null&&!window.__commands.some(item=>item.command==='searchRecords'&&item.payload.query==='stale synthetic query'));
+ $('.mj-document-kind [data-action="relations"]').click();$(`[data-relation-choice="${detailB.id}"]`).click();$('[data-action="finish-relations"]').click();await persist();
+ check('applying an unlink persists only the reference change',!selected().refs.length&&!window.__sealedRecords[detailA.id].refs.length&&window.__sealedRecords[detailB.id].fields.some(field=>field.value==='Lazy-secret-B'));
+ check('the link picker never decrypts candidate records',record(detailB.id)._sealed&&window.__commands.filter(item=>item.command==='openRecord').length===linksOpenCount);
+ await openSealedRecord(detailB.id);await openSealedRecord(detailA.id);
+ check('unlink survives leaving and reopening the protected record',!selected().refs.length&&!!$('.mj-document-kind [data-action="relations"]'));
+ nativeInfo.settings.autoSave=false;clearManualState();clearEditorHistory();render();$('.mj-document-kind [data-action="relations"]').click();$(`[data-relation-choice="${detailB.id}"]`).click();$('[data-action="finish-relations"]').click();
+ check('adding a first link in reading mode exposes manual Save',isEditing()&&manualDocumentDirty()&&!!$('[data-document-save]')&&selected().refs.includes(detailB.id));await persist();
+ check('background persistence does not commit manual link edits',!window.__sealedRecords[detailA.id].refs.length);
+ undoEditor();check('link edits can be undone',!selected().refs.length);redoEditor();check('link edits can be redone',selected().refs.includes(detailB.id));
+ await persist({documentSave:true});check('manual Save commits linked IDs without copying credentials',window.__sealedRecords[detailA.id].refs.includes(detailB.id)&&!manualDocumentDirty()&&!JSON.stringify(selected()).includes('Lazy-secret-B'));
+ $(`[data-refine="unlink"][data-id="${detailB.id}"]`).click();check('the existing unlink shortcut participates in undo',!selected().refs.length);undoEditor();check('undo restores a link removed by the shortcut',selected().refs.includes(detailB.id));
+ nativeInfo.settings.autoSave=true;clearManualState();await persist();
  acceptNative({exists:true,passwordless:true,unlocked:true,session:'renewed-webkit-ticket',recordProtocol:1,settings:lazyInfo.settings,profile:lazyInfo.profile});
  check('reauthentication adopts a new ticket and removes the old detail lease',nativeInfo.session==='renewed-webkit-ticket'&&state.view==='table'&&records.filter(isProtected).every(item=>item._sealed));
  state.view='table';render();if(redactionPending)await redactionPending;

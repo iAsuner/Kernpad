@@ -34,6 +34,7 @@ function closeModal(cancelPending=false){
  if(typeof cancelManualPrompt==='function')cancelManualPrompt();
  const restorePDF=typeof clearPDFPreview==='function'?clearPDFPreview():null;
  templateFieldDraft=null;
+ clearTimeout(relationDraft?.search?.timer);relationDraft=null;
  const overlay=$('#mj-overlay');entryDraft=null;entryPreview=null;builder=null;if(overlay.hidden)return;
  if(cancelPending&&nativeBusy){cancelInlineAuthentication();nativeCall('cancelAuth').then(info=>{if(info?.locked&&vaultUnlocked)purgePrivate();}).catch(()=>{});}
  modalRevision++;state.modal='';overlay.hidden=true;overlay.replaceChildren();delete overlay.dataset.presenting;
