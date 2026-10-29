@@ -18,6 +18,8 @@ import LocalAuthentication
     static func main() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("Kernpad-Records-\(UUID().uuidString)")
         defer { try? FileManager.default.removeItem(at: root) }
+        try recordOrderingChecks(root.appendingPathComponent("record-ordering"))
+        try manualRecordOrderChecks(root.appendingPathComponent("manual-record-order"))
         try documentTemplateChecks(root.appendingPathComponent("document-templates"))
         try manualDraftChecks(root.appendingPathComponent("manual-drafts"))
         try temporaryNoteChecks(root.appendingPathComponent("temporary-notes"))
@@ -313,6 +315,87 @@ import LocalAuthentication
         let backup=try VaultStore.readBackup(unlocked.backupWithoutPassword(),credential:credential,recovery:true)
         let restored=(backup["private"] as! [String:Any])["templates"] as! [String:Any]
         try check((restored["custom"] as? [String:[String:Any]])?["custom-layout"]?["documentTemplate"] != nil,"backup retains reusable document layout")
+    }
+    static func manualRecordOrderChecks(_ root: URL) throws {
+        let initial = try VaultStore(root: root)
+        let (vault, key, recovery) = try VaultCrypto.syntheticRecordEnvelope(payload: VaultStore.json(["records": [record("a"), record("b"), record("c")], "templates": [:]] as [String: Any]))
+        try SecureFiles.write(JSONEncoder().encode(vault), to: initial.vaultURL)
+        let store = try VaultStore(root: root), credential = VaultCrypto.formatRecovery(recovery); try store.unlock(credential: credential, recovery: true)
+        let ticket = try store.privateIndex()["session"] as! String
+        func archive() throws -> RecordArchive { try JSONDecoder().decode(RecordArchive.self, from: VaultCrypto.decrypt(store.envelope!, key: key)) }
+        let original = try archive(), ciphertext = Dictionary(uniqueKeysWithValues: original.items.map { ($0.id, $0.ciphertext) })
+        var summaries = try store.privateIndex()["records"] as! [[String: Any]]; summaries[1]["pinned"] = true
+        var notes = [record("n1", type: "note"), record("n2", type: "note")]
+        for i in notes.indices { notes[i]["fields"] = []; notes[i]["blocks"] = [["type": "text", "text": "Synthetic note"]] }; notes[1]["pinned"] = true
+        var model: [String: Any] = ["recordProtocol": 1, "session": ticket, "records": summaries + notes, "deletedIDs": [], "templates": [:], "recordOrder": ["c", "b", "a", "n2", "n1"]]
+        RecordAccessTrace.ids = []; try store.saveFromWeb(model: model)
+        try check(RecordAccessTrace.ids.isEmpty, "pinning and manual ordering decrypt no record bodies")
+        let reordered = try archive()
+        try check(reordered.items.map(\.id) == ["c", "b", "a"], "explicit account order overrides stored array order")
+        try check(reordered.items.allSatisfy { ciphertext[$0.id] == $0.ciphertext }, "pinning and dragging preserve all existing body ciphertext")
+        try check(try store.publicNotes().map { $0["id"] as! String } == ["n2", "n1"], "explicit note order is committed")
+        try check(try store.openRecord("b", session: ticket)["pinned"] as? Bool == true, "pinned state is merged from the sealed summary")
+        let disk = try SecureFiles.read(store.vaultURL), noteDisk = try SecureFiles.read(store.notesURL)
+        for invalid: Any in [["a", "a"], ["missing"], ["../outside"], "not-an-array", [1]] {
+            model["recordOrder"] = invalid
+            try rejects("invalid explicit order rejected") { try store.saveFromWeb(model: model) }
+        }
+        try check(try SecureFiles.read(store.vaultURL) == disk && SecureFiles.read(store.notesURL) == noteDisk, "invalid sorting does not write either store")
+        var bad = summaries[0]; bad["pinned"] = "true"; try rejects("pin state must be a boolean") { try VaultStore.validateRecords([bad]) }
+        store.lock(); let restarted = try VaultStore(root: root); try restarted.unlock(credential: credential, recovery: true)
+        let index = try restarted.privateIndex()["records"] as! [[String: Any]]
+        try check(index.map { $0["id"] as! String } == ["c", "b", "a"] && index[1]["pinned"] as? Bool == true, "manual account order and pin survive restart")
+        let publicNotes = try restarted.publicNotes()
+        try check(publicNotes.map { $0["id"] as! String } == ["n2", "n1"] && publicNotes[0]["pinned"] as? Bool == true, "manual note order and pin survive restart")
+        let restored = try VaultStore.readBackup(restarted.backupWithoutPassword(), credential: credential, recovery: true)
+        let backupRecords = (restored["private"] as! [String: Any])["records"] as! [[String: Any]]
+        try check(backupRecords.map { $0["id"] as! String } == ["c", "b", "a"] && backupRecords[1]["pinned"] as? Bool == true, "backup retains manual order and pin metadata")
+        let fresh = try restarted.privateIndex()["session"] as! String
+        var unpinned = index[1]; unpinned["pinned"] = false
+        try restarted.saveFromWeb(model: ["recordProtocol": 1, "session": fresh, "records": [unpinned] + publicNotes, "deletedIDs": [], "templates": [:], "recordOrder": ["b"]])
+        let partial = try restarted.privateIndex()["records"] as! [[String: Any]]
+        try check(partial.map { $0["id"] as! String } == ["b", "c", "a"] && partial[0]["pinned"] as? Bool == false, "partial explicit sorting preserves omitted records and allows unpinning")
+    }
+    static func recordOrderingChecks(_ root: URL) throws {
+        let initial = try VaultStore(root: root), originals = [record("older-a"), record("older-b")]
+        let (vault, key, recovery) = try VaultCrypto.syntheticRecordEnvelope(payload: VaultStore.json(["records": originals, "templates": [:]] as [String: Any]))
+        try SecureFiles.write(JSONEncoder().encode(vault), to: initial.vaultURL)
+        let credential = VaultCrypto.formatRecovery(recovery), store = try VaultStore(root: root)
+        try store.unlock(credential: credential, recovery: true)
+        let ticket = try store.privateIndex()["session"] as! String
+        func items() throws -> [SealedRecord] { try JSONDecoder().decode(RecordArchive.self, from: VaultCrypto.decrypt(store.envelope!, key: key)).items }
+        func ids(_ store: VaultStore) throws -> [String] { (try store.privateIndex()["records"] as! [[String: Any]]).map { $0["id"] as! String } }
+        func patch(_ records: [[String: Any]], deleted: [String] = []) -> [String: Any] {
+            ["recordProtocol": 1, "session": ticket, "records": records, "deletedIDs": deleted, "templates": [:]]
+        }
+        func note(_ id: String) -> [String: Any] {
+            var value = record(id, type: "note"); value["fields"] = []; value["blocks"] = [["type": "text", "text": "Synthetic public note"]]; return value
+        }
+        let before = try items(), oldNote = note("older-note"), newNote = note("newer-note")
+        try store.saveFromWeb(model: patch([oldNote]))
+        let summaries = try store.privateIndex()["records"] as! [[String: Any]]
+        RecordAccessTrace.ids = []
+        try store.saveFromWeb(model: patch([record("new-account")] + summaries + [newNote, oldNote]))
+        try check(try ids(store) == ["new-account", "older-a", "older-b"], "new accounts are stored before existing records")
+        try check(RecordAccessTrace.ids.isEmpty, "preserving insertion order decrypts no existing bodies")
+        let after = try items()
+        try check(after[1].ciphertext == before[0].ciphertext && after[2].ciphertext == before[1].ciphertext, "inserting a record retains existing ciphertext verbatim")
+        var metadata = summaries[1]; metadata["favorite"] = true
+        try store.saveFromWeb(model: patch([metadata, newNote, oldNote]))
+        try check(try ids(store) == ["new-account", "older-a", "older-b"], "partial metadata patches do not reorder existing or omitted records")
+        try store.saveFromWeb(model: patch([record("batch-first"), record("batch-second"), newNote, oldNote]))
+        let expected = ["batch-first", "batch-second", "new-account", "older-a", "older-b"]
+        try check(try ids(store) == expected, "batch insertion retains its submitted order before omitted records")
+        store.lock()
+        let restarted = try VaultStore(root: root)
+        try check(try restarted.publicNotes().map { $0["id"] as! String } == ["newer-note", "older-note"], "new public notes retain their position after restart")
+        try restarted.unlock(credential: credential, recovery: true)
+        try check(try ids(restarted) == expected, "new account order survives lock and process restart")
+        let backup = try VaultStore.readBackup(restarted.backupWithoutPassword(), credential: credential, recovery: true)
+        let restored = (backup["private"] as! [String: Any])["records"] as! [[String: Any]]
+        try check(restored.map { $0["id"] as! String } == expected, "backup retains record insertion order")
+        try restarted.saveFromWeb(model: ["recordProtocol": 1, "session": try restarted.privateIndex()["session"] as! String, "records": [newNote, oldNote], "deletedIDs": ["batch-first"], "templates": [:]])
+        try check(try ids(restarted) == Array(expected.dropFirst()), "explicit deletion preserves the remaining record order")
     }
     static func manualDraftChecks(_ root: URL) throws {
         let initial = try VaultStore(root: root)

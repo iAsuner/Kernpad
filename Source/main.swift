@@ -17,6 +17,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
     var nativeDialog = false
     var pdfExporter: PDFExporter?
     var clipboardChange = -1
+    var clipboardPasteboard = NSPasteboard.general
     var pageLoaded = false
     let recoveryAttempts = RecoveryAttempts()
     var contentCrashCount = 0
@@ -254,7 +255,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
         else { pageLoaded = false; showError(VaultError.message("界面进程无法启动。请关闭后重新打开应用。")) }
     }
     func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration, for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? { nil }
-    func clearClipboard() { if clipboardChange >= 0 && NSPasteboard.general.changeCount == clipboardChange { NSPasteboard.general.clearContents() }; clipboardChange = -1 }
+    func clearClipboard() { if clipboardChange >= 0 && clipboardPasteboard.changeCount == clipboardChange { clipboardPasteboard.clearContents() }; clipboardChange = -1 }
     func showError(_ error: Error) {
         let a = makeAlert(); a.alertStyle = .warning; a.messageText = t("操作未完成", "Action not completed")
         a.informativeText = locale == "en" ? Self.englishError(error.localizedDescription) : error.localizedDescription
@@ -293,10 +294,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
         if a.runModal() == .alertSecondButtonReturn { setClipboard(value); a.buttons[1].isEnabled = false; _ = a.runModal() }
     }
     func setClipboard(_ text: String) {
-        NSPasteboard.general.clearContents(); NSPasteboard.general.setString(text, forType: .string)
-        clipboardChange = NSPasteboard.general.changeCount
+        clipboardPasteboard.clearContents(); clipboardPasteboard.setString(text, forType: .string)
+        trackClipboardExpiry()
+    }
+    func trackClipboardExpiry() {
+        clipboardChange = clipboardPasteboard.changeCount
         let change = clipboardChange
         DispatchQueue.main.asyncAfter(deadline: .now() + 30) { if self.clipboardChange == change { self.clearClipboard() } }
+    }
+    func trackDocumentClipboard(_ token: String) -> Bool {
+        guard UUID(uuidString: token) != nil,
+              clipboardPasteboard.string(forType: .html)?.contains("data-kernpad-copy=\"\(token)\"") == true else { return false }
+        trackClipboardExpiry(); return true
     }
     typealias Reply = (Any?, String?) -> Void
     func run(_ reply: @escaping Reply, task: @escaping () throws -> Any) {
@@ -473,6 +482,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
             cancelAuthentication(notifyWeb: false); replyHandler(["cancelled": true, "locked": wasAuthenticating], nil)
         case "settings": run(replyHandler) { try self.store.updateSettings(payload); DispatchQueue.main.async { self.setupMenu() }; return true }
         case "copy": guard let text = payload["text"] as? String, text.utf8.count <= 1_000_000 else { replyHandler(nil, "Invalid copy"); return }; setClipboard(text); replyHandler(true, nil)
+        case "trackDocumentClipboard":
+            guard let token = payload["token"] as? String, UUID(uuidString: token) != nil else { replyHandler(nil, "Invalid clipboard token"); return }
+            DispatchQueue.main.async {
+                // The WebKit copy event finishes writing before this callback.
+                // A different clipboard owner must never inherit our deadline.
+                replyHandler(self.trackDocumentClipboard(token), nil)
+            }
         case "openURL":
             guard let value = payload["url"] as? String, let url = URL(string: value), ["https", "http"].contains(url.scheme?.lowercased() ?? ""), url.user == nil, url.password == nil else { replyHandler(nil, "Invalid URL"); return }
             NSWorkspace.shared.open(url); replyHandler(true, nil)

@@ -16,7 +16,7 @@ An account often needs deployment notes, a few useful links or an illustrated pr
 
 ## From a quick note to a complete document
 
-Combine paragraphs, headings, quotes, callouts, tasks, nested lists, tables, code, dates, tags, links, forms, verification codes, images and video. Type `@` on an empty line or use the adjacent `+` to insert a component. Insert between existing blocks, drag to reorder, or select several for a shared adjustment.
+Combine paragraphs, headings, quotes, callouts, tasks, nested lists, tables, code, dates, tags, links, forms, verification codes, images and video. Click an empty row to start writing and type `@` to insert a component. Copy and paste table cells by rows and columns, or move selected components between documents with their formatting preserved. Insert between existing blocks, drag to reorder, or select several for a shared adjustment.
 
 ![Select a block and adjust width, position and row span in the inspector](docs/images/en/editor.webp)
 

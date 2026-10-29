@@ -37,15 +37,22 @@ final class AppEditorRunner:NSObject,NSApplicationDelegate,WKNavigationDelegate{
    let original=script.components(separatedBy:"\n").first(where:{$0.hasPrefix("const nativeCall=")})!
    script=script.replacingOccurrences(of:original,with:"const nativeCall=async(command,payload={})=>{window.__commands.push({command,payload});if(command==='save'){await window.__saveGate;if(window.__failSave){window.__failSave=false;throw new Error('Synthetic save failure');}}if(command==='settings'&&window.__failSettings){window.__failSettings=false;throw new Error('Synthetic settings failure');}if(command==='importMedia'||command==='chooseMedia'){window.__duringMediaImport?.();return {block:structuredClone(window.__fixtureMedia[payload.kind])};}if(command==='save'&&window.__sealedRecords)for(const record of payload.records)if(!record._sealed&&isProtected(record))window.__sealedRecords[record.id]=structuredClone(record);if(command==='resolveMailbox'){if(window.__mailboxConflict)throw new Error('Synthetic mailbox conflict');return {id:window.__mailboxID||null};}if(command==='searchRecords')return {ids:window.__searchIDs||[],truncated:false};if(command==='recordPreviews')return {previews:await Promise.all(payload.ids.map(window.__previewOf)),step:Math.floor(Date.now()/30000)};if(command==='copyRecordValue')return {copied:true};if(command==='openRecord')return structuredClone(window.__sealedRecords[payload.id]);if(command==='bootstrap')return {exists:false,unlocked:false,notes:[],settings:{locale:'zh',idle:300,maximum:0,background:false}};return {saved:true};};")
    let hook=try String(contentsOf:project.appendingPathComponent("Source/Tests/AppEditorTests.js"),encoding:.utf8)+"\n"+String(contentsOf:project.appendingPathComponent("Source/Tests/DocumentLayoutTests.js"),encoding:.utf8)
-   let interactionHook=try String(contentsOf:project.appendingPathComponent("Source/Tests/InteractionTests.js"),encoding:.utf8)+"\n"+String(contentsOf:project.appendingPathComponent("Source/Tests/PersistenceInteractionTests.js"),encoding:.utf8)+"\n"+String(contentsOf:project.appendingPathComponent("Source/Tests/DocumentTemplateTests.js"),encoding:.utf8)+"\n"+String(contentsOf:project.appendingPathComponent("Source/Tests/ComponentStyleTests.js"),encoding:.utf8)
+   let interactionHook=try String(contentsOf:project.appendingPathComponent("Source/Tests/InteractionTests.js"),encoding:.utf8)+"\n"+String(contentsOf:project.appendingPathComponent("Source/Tests/PersistenceInteractionTests.js"),encoding:.utf8)+"\n"+String(contentsOf:project.appendingPathComponent("Source/Tests/DocumentTemplateTests.js"),encoding:.utf8)+"\n"+String(contentsOf:project.appendingPathComponent("Source/Tests/ComponentStyleTests.js"),encoding:.utf8)+"\n"+String(contentsOf:project.appendingPathComponent("Source/Tests/ClipboardTests.js"),encoding:.utf8)+"\n"+String(contentsOf:project.appendingPathComponent("Source/Tests/RecordOrderTests.js"),encoding:.utf8)+"\n"+String(contentsOf:project.appendingPathComponent("Source/Tests/DocumentInteractionTests.js"),encoding:.utf8)
    let range=script.range(of:"})();",options:.backwards)!;script.insert(contentsOf:hook+"\n"+interactionHook,at:range.lowerBound)
    let media=try String(contentsOf:project.appendingPathComponent("Build/media-import-fixture.json"),encoding:.utf8)
    let icons=try String(contentsOf:project.appendingPathComponent("Source/Web/lucide.min.js"),encoding:.utf8)
    web.evaluateJavaScript(icons+";window.__fixtureMedia=\(media);window.__commands=[];"+script){_,error in
     if let error{print(error);exit(1)}
+    if CommandLine.arguments.contains("--clipboard") || CommandLine.arguments.contains("--record-order") || CommandLine.arguments.contains("--persistence") || CommandLine.arguments.contains("--document-interactions") {
+     let task = CommandLine.arguments.contains("--document-interactions") ? "__runDocumentInteractionChecks" : CommandLine.arguments.contains("--persistence") ? "__runPersistenceChecks" : CommandLine.arguments.contains("--record-order") ? "__runRecordOrderChecks" : "__runClipboardChecks"
+     if task == "__runRecordOrderChecks" { self.window.setContentSize(NSSize(width:1260,height:900)) }
+     self.web.callAsyncJavaScript("window.requestAnimationFrame=callback=>setTimeout(callback,0);window.__editorChecks=window.__editorChecks||0;await new Promise(r=>setTimeout(r,100));return await window.\(task)();",arguments:[:],in:nil,in:.page){result in
+      switch result { case .success(let count):print("\(count) \(task) checks passed");if task == "__runRecordOrderChecks" { self.captureRecordOrderPreview();return };if task == "__runDocumentInteractionChecks" { self.captureDocumentMotionPreview();return };exit(0);case .failure(let error):print(error);exit(1) }
+     };return
+    }
     if CommandLine.arguments.contains("--styles") { self.checkInspectorWidths();return }
     self.beginPhase("editing and persistence")
-    self.web.callAsyncJavaScript("window.requestAnimationFrame=callback=>setTimeout(callback,0); await window.__runEditorChecks(); await window.__runInteractionChecks(); await window.__runPersistenceChecks(); return await window.__runDocumentTemplateChecks();",arguments:[:],in:nil,in:.page){result in
+    self.web.callAsyncJavaScript("window.requestAnimationFrame=callback=>setTimeout(callback,0); await window.__runEditorChecks(); await window.__runInteractionChecks(); await window.__runDocumentInteractionChecks(); await window.__runClipboardChecks(); await window.__runRecordOrderChecks(); await window.__runPersistenceChecks(); return await window.__runDocumentTemplateChecks();",arguments:[:],in:nil,in:.page){result in
      switch result{
      case .success(let count):
       self.web.takeSnapshot(with:nil){ image,error in
@@ -57,6 +64,29 @@ final class AppEditorRunner:NSObject,NSApplicationDelegate,WKNavigationDelegate{
     }
    }
   }catch{print(error);exit(1)}
+ }
+ func captureDocumentMotionPreview(){
+  web.callAsyncJavaScript("return await window.__showDocumentMotionPreview();",arguments:[:],in:nil,in:.page){result in
+   if case .failure(let error)=result{print(error);exit(1)}
+   DispatchQueue.main.asyncAfter(deadline:.now()+0.1){
+    self.web.takeSnapshot(with:nil){image,error in
+     guard let tiff=image?.tiffRepresentation,let bitmap=NSBitmapImageRep(data:tiff),let png=bitmap.representation(using:.png,properties:[:]) else{print(error as Any);exit(1)}
+     do{try png.write(to:self.project.appendingPathComponent("Build/document-motion.png"));exit(0)}catch{print(error);exit(1)}
+    }
+   }
+  }
+ }
+ func captureRecordOrderPreview(_ area:String="notes"){
+  web.callAsyncJavaScript("return await window.__showRecordOrderMotionPreview(area);",arguments:["area":area],in:nil,in:.page){result in
+   if case .failure(let error)=result{print(error);exit(1)}
+   DispatchQueue.main.asyncAfter(deadline:.now()+0.1){
+    self.web.takeSnapshot(with:nil){image,error in
+     guard let tiff=image?.tiffRepresentation,let bitmap=NSBitmapImageRep(data:tiff),let png=bitmap.representation(using:.png,properties:[:]) else{print(error as Any);exit(1)}
+     do{try png.write(to:self.project.appendingPathComponent("Build/record-order-\(area).png"))}catch{print(error);exit(1)}
+     if area == "notes" { self.captureRecordOrderPreview("vault") } else { exit(0) }
+    }
+   }
+  }
  }
  func checkInspectorWidths(_ index:Int=0){
   // Windows reserves a small part of its minimum outer width for native borders.

@@ -54,7 +54,7 @@ window.__runPersistenceChecks=async()=>{
   await new Promise(resolve=>setTimeout(resolve,650));
   check(language+' completed automatic progress quietly disappears',$('#mj-status-text').hidden&&$('[data-document-save]').hidden);
   type('Failed automatic '+language);window.__failSave=true;await persist().catch(()=>{});await settle();
-  check(language+' automatic failure retains content and immediately exposes Retry Save',r.blocks[0].text==='Failed automatic '+language&&!$('#mj-status-text').hidden&&lastSaveError&&!$('[data-document-save]').hidden&&!$('[data-document-save]').disabled&&$('[data-document-save]').textContent===(language==='zh'?'重试保存':'Retry Save'));
+  check(language+' automatic failure retains content and immediately exposes Retry Save '+JSON.stringify({body:r.blocks[0].text,error:lastSaveError,status:$('#mj-status-text').textContent,statusHidden:$('#mj-status-text').hidden,button:$('[data-document-save]').textContent,disabled:$('[data-document-save]').disabled,hidden:$('[data-document-save]').hidden,fail:window.__failSave}),r.blocks[0].text==='Failed automatic '+language&&!$('#mj-status-text').hidden&&lastSaveError&&!$('[data-document-save]').hidden&&!$('[data-document-save]').disabled&&$('[data-document-save]').textContent===(language==='zh'?'重试保存':'Retry Save'));
   $('[data-document-save]').click();await saveChain;await settle();
   check(language+' retry commits the same document and hides routine success',!lastSaveError&&$('#mj-status-text').hidden&&$('[data-document-save]').hidden&&window.__commands.filter(c=>c.command==='save').at(-1).payload.records.find(item=>item.id===r.id).blocks[0].text==='Failed automatic '+language);
  }

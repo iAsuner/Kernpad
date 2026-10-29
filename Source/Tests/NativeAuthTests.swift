@@ -8,6 +8,21 @@ import Cocoa
         app.setActivationPolicy(.prohibited)
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("Kernpad-NativeAuth-Audit-\(UUID().uuidString)")
         let host = AppDelegate()
+        // Use an independent pasteboard so clipboard lifecycle checks cannot
+        // replace or clear anything on the user's system clipboard.
+        host.clipboardPasteboard = NSPasteboard.withUniqueName()
+        let board = host.clipboardPasteboard, token = UUID().uuidString
+        board.setString("<div data-kernpad-copy=\"\(token)\">Synthetic table</div>", forType: .html)
+        board.setString("Synthetic table", forType: .string)
+        guard host.trackDocumentClipboard(token), host.clipboardChange == board.changeCount else { throw VaultError.message("Component clipboard write was not tracked") }
+        guard !host.trackDocumentClipboard(UUID().uuidString), !host.trackDocumentClipboard("invalid") else { throw VaultError.message("Mismatched clipboard marker was accepted") }
+        board.clearContents(); board.setString("Newer synthetic clipboard owner", forType: .string)
+        guard !host.trackDocumentClipboard(token) else { throw VaultError.message("Delayed clipboard marker claimed a newer copy") }
+        host.clearClipboard()
+        guard board.string(forType: .string) == "Newer synthetic clipboard owner" else { throw VaultError.message("Clearing an older component copy erased newer content") }
+        board.clearContents(); board.setString("<div data-kernpad-copy=\"\(token)\">Synthetic table</div>", forType: .html)
+        _ = host.trackDocumentClipboard(token); host.clearClipboard()
+        guard board.string(forType: .html) == nil else { throw VaultError.message("Component clipboard data survived clearing") }
         host.store = try VaultStore(root: root)
         let recovery = try host.store.createTestVault()
         let message = "Synthetic failure \"quoted\"\n\u{2028} </script>"
@@ -31,8 +46,9 @@ import Cocoa
                 if index < 3 { next() }
                 else {
                     host.storageQueue.sync { host.store.lock() }
+                    host.clipboardPasteboard.releaseGlobally()
                     try? FileManager.default.removeItem(at: root)
-                    print("4 native authentication completion / failure feedback checks passed")
+                    print("9 native authentication / component clipboard lifecycle checks passed")
                     exit(0)
                 }
             }, mode: "systemPassword") { _ in

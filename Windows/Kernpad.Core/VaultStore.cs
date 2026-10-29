@@ -245,6 +245,12 @@ public sealed class VaultStore : IDisposable {
         var deleted=model.Array("deletedIDs").Select(v=>v!.GetValue<string>()).ToArray();
         if(deleted.Any(id=>!Records.SafeId(id)) || deleted.Distinct().Count()!=deleted.Length || records.OfType<JsonObject>().Any(r=>deleted.Contains(r.Text("id")))) throw new InvalidDataException("Invalid deletion request");
         var notes=new JsonArray(); var incoming=new List<JsonObject>();
+        string[]? requestedOrder=null;
+        if(model.ContainsKey("recordOrder")){
+            if(model["recordOrder"] is not JsonArray orderValues||orderValues.Count>20000)throw new InvalidDataException("Invalid record order");
+            requestedOrder=orderValues.Select(v=>v?.GetValue<string>()??"").ToArray();var known=records.OfType<JsonObject>().Select(r=>r.Text("id")).ToHashSet(StringComparer.Ordinal);
+            if(requestedOrder.Any(id=>!Records.SafeId(id)||!known.Contains(id))||requestedOrder.Distinct(StringComparer.Ordinal).Count()!=requestedOrder.Length)throw new InvalidDataException("Invalid record order");
+        }
         _=Notes();
         foreach(var record in records.OfType<JsonObject>()) {
             var id=record.Text("id");if(ExpiredNote(record)){var draft=DraftPath(id);if(File.Exists(draft))File.Delete(draft);expiredNoteIds.Add(id);}
@@ -252,10 +258,14 @@ public sealed class VaultStore : IDisposable {
             if(Records.Protected(record))incoming.Add(record);else notes.Add(record.DeepClone());
         }
         if(!Unlocked && (incoming.Count>0 || deleted.Length>0)) throw new InvalidOperationException("Vault locked; private changes were not saved");
+        if(requestedOrder!=null){var byId=notes.OfType<JsonObject>().ToDictionary(n=>n.Text("id"),StringComparer.Ordinal);var sorted=new JsonArray();foreach(var id in requestedOrder.Concat(byId.Keys).Distinct(StringComparer.Ordinal))if(byId.TryGetValue(id,out var note))sorted.Add(note.Copy());notes=sorted;}
         if(Unlocked) {
             Ticket(model.Text("session")); var templates=model["templates"] as JsonObject ?? throw new InvalidDataException("Invalid templates"); Records.Templates(templates);
             var archive=ReadArchive(Envelope!,Key()); var ordered=archive.Array("items").OfType<JsonObject>().Select(i=>i.Copy()).ToList();
             var byId=ordered.ToDictionary(i=>i.Text("id"),StringComparer.Ordinal);
+            // Match the editor's new-record insertion order without moving
+            // existing or omitted records during partial metadata patches.
+            var order=(requestedOrder??incoming.Select(r=>r.Text("id")).Where(id=>!byId.ContainsKey(id)).ToArray()).Concat(ordered.Select(i=>i.Text("id"))).Distinct(StringComparer.Ordinal).ToArray();
             foreach(var record in incoming) {
                 var id=record.Text("id");
                 if(record.Flag("_sealed")) {
@@ -264,14 +274,14 @@ public sealed class VaultStore : IDisposable {
                     var summary=Records.Summary(record); summary["hasCodes"]=old["hasCodes"]?.DeepClone(); item["header"]=Convert.ToBase64String(Json.Bytes(summary));
                 } else {
                     if(byId.ContainsKey(id) && ActiveRecordId!=id) throw new InvalidOperationException("Open the record before editing");
-                    var item=Records.Seal(record,Envelope!,Key()); if(!byId.ContainsKey(id)) ordered.Add(item); byId[id]=item;
+                    byId[id]=Records.Seal(record,Envelope!,Key());
                 }
             }
             foreach(var note in notes.OfType<JsonObject>()) if(byId.ContainsKey(note.Text("id"))) {
                 if(note.Text("id")!=ActiveRecordId || note["_sealed"]!=null) throw new InvalidOperationException("Open the record before moving it to public notes"); byId.Remove(note.Text("id"));
             }
             foreach(var id in deleted) byId.Remove(id);
-            var nextItems=new JsonArray(); foreach(var item in ordered) if(byId.Remove(item.Text("id"),out var value)) nextItems.Add(value.Copy());
+            var nextItems=new JsonArray(); foreach(var id in order) if(byId.Remove(id,out var value)) nextItems.Add(value.Copy());
             var candidate=Envelope!.Copy(); WriteArchive(candidate,Key(),Archive(candidate,nextItems,templates.Copy()));
             if(notes.OfType<JsonObject>().Any(n=>n.Text("id")==ActiveRecordId)) SecureFiles.Write(Path.Combine(DirectoryPath,"notes.json"),Json.Bytes(notes));
             if(schemas!=null)SecureFiles.Write(Path.Combine(DirectoryPath,"template-schemas.json"),Json.Bytes(schemas));

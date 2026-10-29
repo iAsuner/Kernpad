@@ -343,7 +343,7 @@ function applySaved(s){if(!s)return;if(['all','favorites','codes',...groups.map(
 applySaved(saved);
 function remember(){window.openai?.setWidgetState?.({modelContent:{category:state.category,view:state.view,selected:records.some(r=>r.id===state.selected&&!r.id.startsWith('new-'))?state.selected:null},privateContent:null})?.catch(()=>{});}
 window.addEventListener('openai:set_globals',e=>{if(e.detail?.globals?.widgetState?.modelContent){applySaved(e.detail.globals.widgetState.modelContent);render();}});
-const record=id=>(typeof templateDesign!=='undefined'&&templateDesign)?.record.id===id?templateDesign.record:records.find(r=>r.id===id),type=r=>r.type==='note'&&r.protected?{...types.note,name:'加锁便签',icon:'lock-keyhole'}:types[r.type],selected=()=>record(state.selected)||records[0];
+const record=id=>id==null?undefined:(typeof templateDesign!=='undefined'&&templateDesign)?.record.id===id?templateDesign.record:records.find(r=>r.id===id),type=r=>r.type==='note'&&r.protected?{...types.note,name:'加锁便签',icon:'lock-keyhole'}:types[r.type],selected=()=>record(state.selected)||records[0];
 const baseGroupName=()=>state.category==='all'?'全部记录':state.category==='favorites'?'我的收藏':state.category==='codes'?'动态验证码':groups.find(g=>g[0]===state.category)?.[1]||'全部记录';
 function filtered(){return records.filter(r=>(state.category==='all'||state.category==='favorites'&&r.favorite||state.category==='codes'&&hasCodes(r)||type(r).group===state.category)&&(!state.search||[r.name,...r.fields.filter(f=>!f.secret).map(f=>f.value),...r.refs.map(id=>record(id)?.name)].join(' ').toLowerCase().includes(state.search.toLowerCase())));}
 function icons(){globalThis.lucide?.createIcons({attrs:{width:16,height:16}});}
@@ -892,9 +892,9 @@ root.addEventListener('click',e=>{
  if(action==='delete-tag')b.values.splice(Number(target.dataset.tag),1);
  if(action.startsWith('table-')){
   const row=Math.min(b.selectedRow??b.rows.length-1,b.rows.length-1),col=Math.min(b.selectedCol??b.rows[0].length-1,b.rows[0].length-1);
-  if(action==='table-row-add'){if(b.rows.length>=50){toast('预览表格最多 50 行');return;}b.rows.splice(row+1,0,Array(b.rows[0].length).fill(''));b.selectedRow=row+1;}
+  if(action==='table-row-add'){if(b.rows.length>=1000){toast(ui('表格最多 1,000 行、100 列','Tables support up to 1,000 rows and 100 columns'));return;}b.rows.splice(row+1,0,Array(b.rows[0].length).fill(''));b.selectedRow=row+1;}
   if(action==='table-row-delete'&&b.rows.length>1){b.rows.splice(row,1);b.selectedRow=Math.max(0,row-1);}
-  if(action==='table-col-add'){if(b.rows[0].length>=20){toast('预览表格最多 20 列');return;}b.rows.forEach(row=>row.splice(col+1,0,''));b.selectedCol=col+1;}
+  if(action==='table-col-add'){if(b.rows[0].length>=100){toast(ui('表格最多 1,000 行、100 列','Tables support up to 1,000 rows and 100 columns'));return;}b.rows.forEach(row=>row.splice(col+1,0,''));b.selectedCol=col+1;}
   if(action==='table-col-delete'&&b.rows[0].length>1){b.rows.forEach(row=>row.splice(col,1));b.selectedCol=Math.max(0,col-1);}
  }
  repaintBlocks();if(action.includes('delete'))toast('已删除，可在文档工具栏撤销');
@@ -993,7 +993,7 @@ function renderDocumentV4(){
  $('.mj-doc-title').setAttribute('contenteditable',String(isEditing()));$('.mj-docdesc').setAttribute('contenteditable',String(isEditing()));
  $('.mj-doc-section .mj-subline').textContent='';
  if(!isEditing()){$$('.mj-inspector [data-action="relations"]').forEach(el=>el.remove());$('.mj-addblock')?.remove();}
- else $('.mj-addblock').innerHTML=icon('plus')+'添加内容';
+ else $('.mj-addblock').innerHTML=icon('pilcrow')+ui('点击继续写正文，输入 @ 插入组件','Click to keep writing. Type @ to insert a block');
  if(!r.fields.length)$('.mj-properties').innerHTML=isEditing()?'<button class="mj-button cursor-interaction" data-block-add="field">添加基本信息字段</button>':'<span class="mj-empty-fields">尚无基本信息</span>';
  if(pasteEditor&&pasteEditor.recordId===r.id&&isEditing())renderEditorPaste();
  icons();
@@ -1022,13 +1022,13 @@ function renderBlocks(r){
    if(b.type==='otp')el.querySelector('details')?.remove();
    el.querySelectorAll('[contenteditable]').forEach(n=>n.removeAttribute('contenteditable'));
    el.querySelectorAll('input,textarea').forEach(n=>{if(n.type==='checkbox'){n.disabled=true;return;}const span=document.createElement('span');span.className=n.dataset.componentTitle!==undefined?'mj-component-title':'mj-readvalue';span.textContent=n.type==='password'?'••••••••':n.value||'—';n.replaceWith(span);});
-   if(b.type==='table')el.querySelectorAll('[data-cell]').forEach(n=>{const parts=n.dataset.cell.split(',').map(Number);n.innerHTML=mdInline(b.rows[parts[1]][parts[2]]);});
    el.querySelectorAll('label[for]').forEach(n=>n.removeAttribute('for'));
   }
+  if(b.type==='table')el.querySelectorAll('[data-cell]').forEach(n=>{const parts=n.dataset.cell.split(',').map(Number);n.innerHTML=mdInline(b.rows[parts[1]][parts[2]]);});
  }
  polishRichBlocks(temp,r);return temp.innerHTML;
 }
-function repaintBlocks(){const bookmark=richSelectionBookmark(),box=$('#mj-blocks'),body=$('.mj-docbody'),top=body?.scrollTop||0,id=selected()?.id;if(box){box.innerHTML=renderBlocks(selected());restoreRichBookmark(bookmark);renderNav();icons();tick();syncLayoutSelection();syncLayoutInspector();if(body)body.scrollTop=top;requestAnimationFrame(()=>{if(body?.isConnected&&selected()?.id===id)body.scrollTop=top;});}}
+function repaintBlocks(){cancelLayoutDrag({animate:false});stopLayoutMotions();closeRecordMenu();const bookmark=richSelectionBookmark(),box=$('#mj-blocks'),body=$('.mj-docbody'),top=body?.scrollTop||0,id=selected()?.id;if(box){box.innerHTML=renderBlocks(selected());restoreRichBookmark(bookmark);renderNav();icons();tick();syncLayoutSelection();syncLayoutInspector();if(body)body.scrollTop=top;requestAnimationFrame(()=>{if(body?.isConnected&&selected()?.id===id)body.scrollTop=top;});}}
 function focusRich(i,item=null){requestAnimationFrame(()=>{const el=item===null?$('[data-rich-block="'+i+'"]'):$('[data-rich-block="'+i+'"][data-rich-item="'+item+'"]');if(!el){const component=$('[data-component="'+i+'"]');component?.scrollIntoView({block:'nearest'});$('[data-code-text="'+i+'"]')?.focus({preventScroll:true});return;}el.focus();const range=document.createRange();range.selectNodeContents(el);range.collapse(false);const sel=window.getSelection();sel.removeAllRanges();sel.addRange(range);el.scrollIntoView({block:'nearest'});});}
 function closeComponentMenu(){closeRichColorPicker();root.querySelector('.mj-component-menu')?.remove();root.querySelector('.mj-color-menu')?.remove();}
 function showComponentMenu(index,anchor,replace=false){
@@ -1174,9 +1174,9 @@ function filtered(){return records.filter(r=>
  (!state.search||[r.name,r.summary,...r.fields.filter(d=>!d.secret).map(d=>d.value)].join(' ').toLowerCase().includes(state.search.toLowerCase()))
  );}
 function renderNav(){
- const notes=records.filter(r=>!isProtected(r));
+ const notes=orderedRecords(records.filter(r=>!isProtected(r)));
  const nav=(id,label,ico,n)=>`<button class="mj-nav-item cursor-interaction ${state.category===id?'active':''}" data-category="${id}">${icon(ico)}<span>${label}</span><em>${n}</em></button>`;
- $('#mj-nav').innerHTML=`<div class="mj-area-switch"><button class="mj-nav-item cursor-interaction ${state.area==='notes'?'active':''}" data-v5="area" data-area="notes">${icon('sticky-note')}<span>便签</span><em>${notes.length}</em></button><button class="mj-nav-item cursor-interaction ${state.area==='vault'?'active':''}" data-v5="area" data-area="vault">${icon(vaultUnlocked?'lock-keyhole-open':'lock-keyhole')}<span>密码库</span><small>${vaultUnlocked?'已解锁':'已锁定'}</small></button></div>${state.area==='notes'?`<div class="mj-nav-label">便签</div>${nav('all','全部便签','files',notes.length)}${nav('favorites','我的收藏','star',notes.filter(r=>r.favorite).length)}<div class="mj-nav-label">最近便签</div>${notes.slice(0,7).map(r=>`<button class="mj-note-nav cursor-interaction ${state.selected===r.id&&state.view==='document'?'active':''}" data-open="${r.id}">${icon('file-text')}<span>${escape(r.name)}</span></button>`).join('')}`:vaultUnlocked?`<div class="mj-nav-label">密码记录</div>${nav('all','全部记录','files',records.filter(isProtected).length)}${nav('favorites','我的收藏','star',records.filter(r=>isProtected(r)&&r.favorite).length)}${nav('codes','动态验证码','timer',records.filter(r=>isProtected(r)&&hasCodes(r)).length)}<div class="mj-nav-label">按类型浏览</div>${groups.map(g=>nav(g[0],g[1],g[2],records.filter(r=>isProtected(r)&&type(r).group===g[0]).length)).join('')}`:'<p class="mj-vault-navhint">解锁后查看账号、邮箱、服务器与其他凭据。</p>'}`;
+ $('#mj-nav').innerHTML=`<div class="mj-area-switch"><button class="mj-nav-item cursor-interaction ${state.area==='notes'?'active':''}" data-v5="area" data-area="notes">${icon('sticky-note')}<span>便签</span><em>${notes.length}</em></button><button class="mj-nav-item cursor-interaction ${state.area==='vault'?'active':''}" data-v5="area" data-area="vault">${icon(vaultUnlocked?'lock-keyhole-open':'lock-keyhole')}<span>密码库</span><small>${vaultUnlocked?'已解锁':'已锁定'}</small></button></div>${state.area==='notes'?`<div class="mj-nav-label">便签</div>${nav('all','全部便签','files',notes.length)}${nav('favorites','我的收藏','star',notes.filter(r=>r.favorite).length)}<div class="mj-nav-label">最近便签</div>${notes.slice(0,7).map(r=>`<button class="mj-note-nav cursor-interaction ${state.selected===r.id&&state.view==='document'?'active':''}" data-open="${r.id}">${icon(r.pinned?'pin':'file-text')}<span>${escape(r.name)}</span></button>`).join('')}`:vaultUnlocked?`<div class="mj-nav-label">密码记录</div>${nav('all','全部记录','files',records.filter(isProtected).length)}${nav('favorites','我的收藏','star',records.filter(r=>isProtected(r)&&r.favorite).length)}${nav('codes','动态验证码','timer',records.filter(r=>isProtected(r)&&hasCodes(r)).length)}<div class="mj-nav-label">按类型浏览</div>${groups.map(g=>nav(g[0],g[1],g[2],records.filter(r=>isProtected(r)&&type(r).group===g[0]).length)).join('')}`:'<p class="mj-vault-navhint">解锁后查看账号、邮箱、服务器与其他凭据。</p>'}`;
  $('.mj-brand strong').textContent='密笺';$('.mj-brand small').textContent='在本机保存便签与密码';
  $('#mj-search').placeholder=state.area==='notes'?'搜索便签…':vaultUnlocked?'搜索密码记录…':'密码库已锁定';$('#mj-search').disabled=state.area==='vault'&&!vaultUnlocked;
  const button=$('.mj-toolbar [data-action="new"]');if(button)button.innerHTML=icon('plus')+(state.area==='vault'?'新建记录':'新建便签');

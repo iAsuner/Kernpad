@@ -1,14 +1,20 @@
 // Page-scoped display values stay separate from editable records and save patches.
-let recordPreviews=new Map(),previewEpoch=0,previewContext='',previewStep=-1,previewPending=null,previewError='';
+let recordPreviews=new Map(),previewEpoch=0,previewContext='',previewStep=-1,previewPending=null,previewError='',previewDeferred=false;
 function clearRecordPreviews(){
- previewEpoch++;recordPreviews.clear();previewContext='';previewStep=-1;previewPending=null;previewError='';
+ previewEpoch++;recordPreviews.clear();previewContext='';previewStep=-1;previewPending=null;previewError='';previewDeferred=false;
 }
+function presentRecordPreviews(){if(typeof recordOrderPointer!=='undefined'&&recordOrderPointer?.active){previewDeferred=true;return;}previewDeferred=false;render();}
+function flushDeferredRecordPreviews(){if(previewDeferred&&!recordOrderSaving&&!recordOrderPointer)presentRecordPreviews();}
 function listPreview(r){return r?._sealed?recordPreviews.get(r.id):null;}
 function listAccountField(r){const p=listPreview(r);return r._sealed?(p?{value:p.account,secret:p.accountSecret}:null):accountField(r);}
 function listAccountOf(r){return listAccountField(r)?.value||'';}
 function listHasPassword(r){return r._sealed?!!listPreview(r)?.hasPassword:!!passwordField(r)?.value;}
 function listCodes(r){const p=listPreview(r);return p?.step===Math.floor(Date.now()/30000)?p.codes:[];}
 function refreshListPreviews(force=false){
+ // A list mutation owns its save/rollback transaction. Do not enqueue a
+ // second snapshot of its optimistic order before that write is acknowledged.
+ if(typeof recordOrderSaving!=='undefined'&&recordOrderSaving)return;
+ if(typeof recordOrderPointer!=='undefined'&&recordOrderPointer?.active)return;
  if(!nativeInfo.recordProtocol||!vaultUnlocked||state.area!=='vault'||state.view!=='table'||state.search||state.category==='trash'){
   if(previewContext)clearRecordPreviews();return;
  }
@@ -38,8 +44,8 @@ function refreshListPreviews(force=false){
     responseStep=reply.step;for(const p of reply.previews)next.set(p.id,p);
    }
    if(!current()||responseStep!==Math.floor(Date.now()/30000)||[...next.values()].some(p=>p.step!==responseStep))return;
-   recordPreviews=next;previewStep=responseStep;previewError='';render();
-  }catch(error){if(current()){previewError=String(error);toast(previewError);render();}}
+   recordPreviews=next;previewStep=responseStep;previewError='';presentRecordPreviews();
+  }catch(error){if(current()){previewError=String(error);toast(previewError);presentRecordPreviews();}}
   finally{if(epoch===previewEpoch)previewPending=null;}
  })();
  previewPending=task;return task;

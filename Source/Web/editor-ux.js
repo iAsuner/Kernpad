@@ -37,7 +37,7 @@ window.addEventListener('pointercancel',()=>{editorPropertyPointer=false;},true)
 window.addEventListener('blur',()=>{editorPropertyPointer=false;});
 function polishEditorUX(){
  const r=selected(),body=$('.mj-docbody');if(body&&r){body.dataset.recordId=r.id;const crumb=$('#mj-breadcrumb');crumb.innerHTML=`<button class="mj-document-name" data-document-rename title="${ui('重命名文档','Rename document')}" aria-label="${escape(ui('重命名：','Rename: ')+recordDisplayName(r))}"><span class="mj-user-content">${escape(recordDisplayName(r))}</span>${icon('pencil')}</button>`;}
- polishRecordSelection();if(typeof polishTemporaryNotes==='function')polishTemporaryNotes();if(typeof manualObserveDocument==='function')manualObserveDocument();if(typeof polishHistoryControls==='function')polishHistoryControls();icons();
+ polishRecordSelection();if(typeof polishRecordOrdering==='function')polishRecordOrdering();if(typeof polishTemporaryNotes==='function')polishTemporaryNotes();if(typeof manualObserveDocument==='function')manualObserveDocument();if(typeof polishHistoryControls==='function')polishHistoryControls();icons();
 }
 async function beginRecordRename(id){
  let r=record(id);if(!r||isProtected(r)&&!vaultUnlocked)return;
@@ -59,9 +59,12 @@ async function commitRecordRename(input,cancel=false){
 root.addEventListener('click',event=>{if(event.target.closest('[data-document-rename]')){event.preventDefault();event.stopImmediatePropagation();beginRecordRename(selected().id);}},true);
 root.addEventListener('keydown',event=>{if(!event.target.matches('[data-document-name]')||event.isComposing)return;if(['Enter','Escape'].includes(event.key)){event.preventDefault();event.stopImmediatePropagation();commitRecordRename(event.target,event.key==='Escape');}},true);
 root.addEventListener('focusout',event=>{if(event.target.matches('[data-document-name]')&&!event.target.disabled)commitRecordRename(event.target);if(event.target.matches('.mj-docdesc')&&!event.target.textContent.trim()){editingEmptySummary=null;applyDocumentOptions();}},true);
-root.addEventListener('click',event=>{
- if(!event.target.closest('[data-delete-selected-blocks]'))return;event.preventDefault();event.stopImmediatePropagation();const r=selected(),indices=currentRichIndices();if(!isEditing()||!r||isProtected(r)&&!vaultUnlocked||!indices.length)return;
+function deleteSelectedDocumentBlocks(){
+ const r=selected(),indices=currentRichIndices();if(!isEditing()||!r||isProtected(r)&&!vaultUnlocked||!indices.length)return;
  snapshotEditor();r.blocks=r.blocks.filter((_,i)=>!indices.includes(i));if(!r.blocks.length)r.blocks=[{type:'text',text:''}];richSelection=null;activeRichIndex=Math.min(Math.min(...indices),r.blocks.length-1);richBlockSelection={id:r.id,indices:[activeRichIndex]};repaintBlocks();syncLayoutInspector(true);remember();toast(ui('所选内容已删除，可撤销','Selected blocks removed. You can undo this.'));
+}
+root.addEventListener('click',event=>{
+ if(!event.target.closest('[data-delete-selected-blocks]'))return;event.preventDefault();event.stopImmediatePropagation();deleteSelectedDocumentBlocks();
 },true);
 // Bulk selection is explicit and limited to visible records; changing the list
 // scope or locking clears it so hidden records cannot be deleted by accident.
@@ -104,6 +107,7 @@ function confirmSelectedRecords(){
  const epoch=privacyEpoch;$('#mj-overlay [data-record-confirm-selection]').addEventListener('click',()=>{if(epoch!==privacyEpoch)return;for(const id of ids){const r=record(id);if(!r||isProtected(r)&&!vaultUnlocked)continue;r.deletedAt=new Date().toISOString();records=records.filter(item=>item.id!==id);trashedRecords.unshift(r);}recordSelection.clear();recordSelectionMode=false;closeModal();render();remember();toast(ui('所选记录已移入回收站','Selected records moved to Trash'));});queueMicrotask(()=>$('[data-trash-cancel]')?.focus({preventScroll:true}));
 }
 window.addEventListener('click',event=>{
+ if(event.target.closest('[data-record-pin],[data-record-drag]'))return;
  if(!canSelectRecords())return;
  if(recordMarqueeSuppressClick){recordMarqueeSuppressClick=false;event.preventDefault();event.stopImmediatePropagation();return;}
  const mode=event.target.closest('[data-record-select-mode]'),all=event.target.closest('[data-record-select-all]'),remove=event.target.closest('[data-record-delete-selected]'),mark=event.target.closest('[data-select-record]'),item=recordSelectionMode||layoutPrimary(event)||event.shiftKey?event.target.closest('.mj-note-card[data-open],.mj-table tbody tr[data-record-id]'):null;

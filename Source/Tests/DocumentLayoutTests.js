@@ -53,7 +53,7 @@ window.__runDocumentLayoutChecks=async()=>{
  check('focusing a date updates the layout target',r.blocks[1].layout.span===6&&!r.blocks[0].layout);
  const cell=$('[data-cell="2,0,0"]');cell.focus();check('table focus selects its own block and has no heavy outline',currentRichIndices()[0]===2&&getComputedStyle(cell).outlineStyle==='none');
  $('[data-code-text="3"]').focus();check('code editor focus selects its own block',currentRichIndices()[0]===3);
- $('[data-layout-gap="0"]').click();$('.mj-component-option[data-type="text"]').click();
+ $('[data-layout-gap="0"]').click();
  check('the inline plus inserts at an interior position',r.blocks[1].type==='text'&&r.blocks[2].type==='date');
  r.blocks=splitColumnPreset();render();
  const toFile=(block,name)=>new File([Uint8Array.from(atob(block.data.split(',')[1]),c=>c.charCodeAt(0))],name);

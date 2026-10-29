@@ -48,7 +48,12 @@
 #kernpad-root.mj-v5.mj-layout-markers .mj-block-handle small{display:block}
 #kernpad-root.mj-v5.mj-layout-markers .mj-component{outline:1px dashed color-mix(in srgb,var(--mj-muted) 18%,transparent);outline-offset:4px}
 #kernpad-root.mj-v5 .mj-layout-selected{box-shadow:0 0 0 2px var(--mj-blue-soft);border-radius:3px}
-#kernpad-root.mj-v5 .mj-layout-dragging{opacity:.35}
+#kernpad-root.mj-v5 #mj-blocks>.mj-layout-dragging{background:var(--mj-blue-soft)!important;border-radius:6px;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--mj-blue) 30%,transparent)}
+#kernpad-root.mj-v5 #mj-blocks>.mj-layout-dragging>*{visibility:hidden}
+#kernpad-root.mj-v5 #mj-blocks>.mj-layout-drag-ghost{position:absolute;left:0;top:0;z-index:20;pointer-events:none;overflow:hidden;grid-column:auto!important;grid-row:auto!important;background:var(--mj-bg);border-radius:6px;box-shadow:0 14px 38px #0003;opacity:.96;will-change:transform}
+#kernpad-root.mj-v5 .mj-layout-shifting{will-change:transform;transform-origin:0 0}
+#kernpad-root.mj-v5 .mj-layout-drag-count{position:absolute;top:5px;right:5px;border-radius:5px;padding:3px 7px;font-size:11px;background:var(--mj-blue);color:#fff}
+@media(prefers-reduced-motion:reduce){#kernpad-root.mj-v5 .mj-layout-shifting,#kernpad-root.mj-v5 #mj-blocks>.mj-layout-drag-ghost{will-change:auto}}
 #kernpad-root.mj-v5 .mj-drop-before:before,#kernpad-root.mj-v5 .mj-drop-after:after{content:'';position:absolute;left:0;right:0;height:3px;background:var(--mj-blue);border-radius:2px;z-index:4}
 #kernpad-root.mj-v5 .mj-drop-before:before{top:-7px}
 #kernpad-root.mj-v5 .mj-drop-after:after{bottom:-7px}

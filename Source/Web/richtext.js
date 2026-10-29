@@ -96,6 +96,6 @@ window.nativeApp.exportPDF=exportDocumentPDF;
 function clearRichState(){
  clearDocumentMediaResources();
  if(typeof clearEditorHistory==='function')clearEditorHistory();
- richBlockSelection=null;closeRichColorPicker();cancelLayoutDrag();
+ richBlockSelection=null;closeRichColorPicker();closeRecordMenu();cancelLayoutDrag({animate:false});stopLayoutMotions();
  if(isProtected(selected()))root.querySelectorAll('video').forEach(video=>{video.pause();video.removeAttribute('src');video.removeAttribute('poster');video.load();});
 }

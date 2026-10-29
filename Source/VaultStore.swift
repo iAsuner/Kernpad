@@ -171,6 +171,7 @@ final class VaultStore {
             if let value = record["documentOptions"] {
                 guard let options = value as? [String: Any], Set(options.keys).isSubset(of: ["title", "summary"]), options.values.allSatisfy({ $0 is Bool }) else { throw VaultError.message("文档显示设置无效。") }
             }
+            if let pinned = record["pinned"], !(pinned is Bool) { throw VaultError.message("记录置顶状态无效。") }
             try validateFields(fields, values: true)
             try validateBlocks(blocks)
             if let deleted = record["deletedAt"] {
@@ -675,13 +676,24 @@ final class VaultStore {
         guard model["recordProtocol"] as? Int == 1, let records = model["records"] as? [[String: Any]],
               let deleted = model["deletedIDs"] as? [String], deleted.allSatisfy(Self.safeID), Set(deleted).count == deleted.count else { throw VaultError.message("保存协议无效，请重新打开应用。") }
         try Self.validateRecords(records)
+        let requestedOrder: [String]?
+        if let raw = model["recordOrder"] {
+            guard let ids = raw as? [String], ids.count <= 20_000, ids.allSatisfy(Self.safeID), Set(ids).count == ids.count,
+                  Set(ids).isSubset(of: Set(records.compactMap { $0["id"] as? String })) else { throw VaultError.message("记录排序无效，原顺序保留。") }
+            requestedOrder = ids
+        } else { requestedOrder = nil }
         _ = try publicNotes()
         for record in records where Self.noteExpiration(record).map({ $0 <= clock() }) == true {
             let id = record["id"] as! String, url = try draftURL(id)
             if FileManager.default.fileExists(atPath:url.path) { try FileManager.default.removeItem(at:url) }
             expiredNoteIDs.insert(id)
         }
-        let notes = records.filter { !Self.protected($0) && !expiredNoteIDs.contains($0["id"] as! String) }, protectedRecords = records.filter { Self.protected($0) && !expiredNoteIDs.contains($0["id"] as! String) }
+        var notes = records.filter { !Self.protected($0) && !expiredNoteIDs.contains($0["id"] as! String) }
+        let protectedRecords = records.filter { Self.protected($0) && !expiredNoteIDs.contains($0["id"] as! String) }
+        if let requestedOrder {
+            let byID = Dictionary(uniqueKeysWithValues: notes.map { ($0["id"] as! String, $0) }); var seen = Set<String>()
+            notes = (requestedOrder + notes.map { $0["id"] as! String }).compactMap { seen.insert($0).inserted ? byID[$0] : nil }
+        }
         let schemas = model["templateSchemas"] as? [String: Any]
         if model["templateSchemas"] != nil { guard let schemas else { throw VaultError.message("模板目录无效。") }; try Self.validateTemplateSchemas(schemas) }
         guard isUnlocked || (protectedRecords.isEmpty && deleted.isEmpty) else { throw VaultError.message("密码库已锁定，未保存凭据。") }
@@ -691,6 +703,9 @@ final class VaultStore {
             let next = try withKey { key -> VaultEnvelope in
                 var archive = try self.archive(vault, key: key)
                 var byID = Dictionary(uniqueKeysWithValues: archive.items.map { ($0.id, $0) })
+                // The editor prepends new records. Keep that insertion order
+                // while partial metadata patches leave all existing positions intact.
+                let newIDs = protectedRecords.compactMap { $0["id"] as? String }.filter { byID[$0] == nil }
                 let incoming = Set(records.compactMap { $0["id"] as? String })
                 guard Set(deleted).isDisjoint(with: incoming) else { throw VaultError.message("删除与保存记录冲突。") }
                 for record in protectedRecords {
@@ -714,7 +729,7 @@ final class VaultStore {
                     byID.removeValue(forKey: note["id"] as! String)
                 }
                 for id in deleted { byID.removeValue(forKey: id) }
-                let order = archive.items.map(\.id) + protectedRecords.compactMap { $0["id"] as? String }
+                let order = (requestedOrder ?? newIDs) + archive.items.map(\.id)
                 var seen = Set<String>()
                 archive.items = order.compactMap { seen.insert($0).inserted ? byID[$0] : nil }
                 archive.templates = try Self.json(templates)
@@ -1035,7 +1050,7 @@ struct RecordArchive: Codable {
     var items: [SealedRecord]
     var templates: Data
 
-    static let metadataKeys: Set<String> = ["id", "type", "name", "favorite", "deletedAt", "refs", "platform", "platformName", "tag", "totp"]
+    static let metadataKeys: Set<String> = ["id", "type", "name", "favorite", "pinned", "deletedAt", "refs", "platform", "platformName", "tag", "totp"]
     static let summaryKeys = metadataKeys.union(["_sealed", "protected", "hasCodes", "fields", "blocks", "links"])
     static func metadata(_ record: [String: Any]) -> [String: Any] {
         record.filter { metadataKeys.contains($0.key) }

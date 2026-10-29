@@ -47,7 +47,14 @@ static class Program{
                 var copied=await window.EvaluateAwaited("window.webkit.messageHandlers.native.postMessage({command:'copyRecordValue',payload:{id:'interop-login',key:'password',session:"+System.Text.Json.JsonSerializer.Serialize(ticket)+"}})");
                 Check(copied!.Flag("copied")&&Clipboard.GetText()=="Synthetic-only-interop","native clipboard copy in Windows VM");
                 Check(store.ActiveRecordId==null,"native copy retains no editing lease");
+                var clipboardToken=Guid.NewGuid().ToString();var componentClipboard=new DataObject();componentClipboard.SetData(DataFormats.Html,"<div data-kernpad-copy=\""+clipboardToken+"\">Synthetic table</div>");componentClipboard.SetData(DataFormats.UnicodeText,"Synthetic table");Clipboard.SetDataObject(componentClipboard);
+                var tracked=await window.EvaluateAwaited("window.webkit.messageHandlers.native.postMessage({command:'trackDocumentClipboard',payload:{token:"+System.Text.Json.JsonSerializer.Serialize(clipboardToken)+"}})");
+                Check(tracked!.GetValue<bool>(),"marked component clipboard data is tracked for expiry");
+                var wrongMarker=await window.EvaluateAwaited("window.webkit.messageHandlers.native.postMessage({command:'trackDocumentClipboard',payload:{token:"+System.Text.Json.JsonSerializer.Serialize(Guid.NewGuid().ToString())+"}})");
+                Check(!wrongMarker!.GetValue<bool>(),"a different component clipboard owner is never claimed");
                 Clipboard.SetText("Synthetic clipboard from another owner");
+                var delayedMarker=await window.EvaluateAwaited("window.webkit.messageHandlers.native.postMessage({command:'trackDocumentClipboard',payload:{token:"+System.Text.Json.JsonSerializer.Serialize(clipboardToken)+"}})");
+                Check(!delayedMarker!.GetValue<bool>(),"a delayed marker cannot claim a newer plaintext copy");
                 var detail=(JsonObject)(await window.EvaluateAwaited("window.webkit.messageHandlers.native.postMessage({command:'openRecord',payload:{id:'interop-login',session:"+System.Text.Json.JsonSerializer.Serialize(ticket)+"}})"))!;
                 Check(detail.Text("summary")=="跨平台 synthetic","real bridge per-record open");
                 detail["summary"]="Saved in Windows virtual machine";

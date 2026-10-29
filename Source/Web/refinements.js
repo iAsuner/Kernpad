@@ -159,7 +159,7 @@ function platformFor(r){
 function platformName(r){return platformFor(r)?.name||ui('未设置平台','No platform');}
 function platformKey(r){const p=platformFor(r);return p?.id==='custom'?'custom:'+p.name.toLowerCase():p?.id||'none';}
 function matchesPlatform(r,key=state.platformFilter||'all'){return key==='all'||platformKey(r)===key;}
-function filtered(){return filteredBase().filter(r=>matchesPlatform(r));}
+function filtered(){return orderedRecords(filteredBase().filter(r=>matchesPlatform(r)));}
 function platformFilterControl(global=false){
  const rows=global?records.filter(r=>(!isProtected(r)||vaultUnlocked)&&((state.searchScope||'all')==='all'||state.searchScope==='notes'&&!isProtected(r)||state.searchScope==='vault'&&isProtected(r))):filteredBase();
  const entries=new Map();for(const r of rows){const key=platformKey(r),p=entries.get(key)||{id:key,name:platformName(r),count:0};p.count++;entries.set(key,p);}

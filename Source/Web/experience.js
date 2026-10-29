@@ -1,6 +1,6 @@
-let customPlatforms={},platformDraft=null,platformReturn=null,contextRecordID=null,pendingTrashPurge=null,relationDraft=null;
+let customPlatforms={},platformDraft=null,platformReturn=null,contextRecordID=null,documentMenuContext=null,pendingTrashPurge=null,relationDraft=null;
 function allPlatforms(){return [...platformCatalog.filter(p=>p.id!=='custom'),...Object.values(customPlatforms),platformCatalog.find(p=>p.id==='custom')];}
-function closeRecordMenu(){root.querySelector('.mj-record-menu')?.remove();contextRecordID=null;}
+function closeRecordMenu(){root.querySelector('.mj-record-menu')?.remove();contextRecordID=null;documentMenuContext=null;}
 function clearExperience(){customPlatforms={};platformDraft=null;platformReturn=null;pendingTrashPurge=null;relationDraft=null;closeRecordMenu();}
 function platformLogo(r){
  const p=platformFor(r),upload=safePlatformLogo(p?.logo);
@@ -173,14 +173,17 @@ function editPlatform(id,supplied){
 function showRecordMenu(r,x,y,trash=false){
  closeRecordMenu();if(!r||isProtected(r)&&!vaultUnlocked)return;
  contextRecordID=r.id;const url=shortRecordURL(r),items=trash?[['restore',ui('恢复','Restore'),'rotate-ccw']]:[
- ['edit',ui('编辑','Edit'),'square-pen'],['rename',ui('重命名','Rename'),'pencil'],...(listAccountOf(r)?[['copy-account',ui('复制账号','Copy account'),'user-round']]:[]),...(listHasPassword(r)?[['copy-password',ui('复制密码','Copy password'),'key-round']]:[]),...(r.totp||r._sealed&&r.hasCodes?[['copy-otp',ui('复制验证码','Copy code'),'timer']]:[]),...(url?[['open-url',ui('打开网址','Open website'),'arrow-up-right'],['copy-url',ui('复制网址','Copy website'),'link']]:[]),['favorite',tr(r.favorite?'取消收藏':'收藏'),'star'],['trash',ui('移入回收站','Move to Trash'),'trash-2']];
+ ['edit',ui('编辑','Edit'),'square-pen'],['rename',ui('重命名','Rename'),'pencil'],['pin',ui(r.pinned?'取消置顶':'置顶',r.pinned?'Unpin':'Pin to top'),'pin'],...(state.view==='table'&&!state.search?[['move-up',ui('上移','Move up'),'arrow-up'],['move-down',ui('下移','Move down'),'arrow-down']]:[]),...(listAccountOf(r)?[['copy-account',ui('复制账号','Copy account'),'user-round']]:[]),...(listHasPassword(r)?[['copy-password',ui('复制密码','Copy password'),'key-round']]:[]),...(r.totp||r._sealed&&r.hasCodes?[['copy-otp',ui('复制验证码','Copy code'),'timer']]:[]),...(url?[['open-url',ui('打开网址','Open website'),'arrow-up-right'],['copy-url',ui('复制网址','Copy website'),'link']]:[]),['favorite',tr(r.favorite?'取消收藏':'收藏'),'star'],['trash',ui('移入回收站','Move to Trash'),'trash-2']];
  const menu=document.createElement('div');menu.className='mj-record-menu';menu.setAttribute('role','menu');menu.setAttribute('aria-label',ui('记录操作','Record actions'));
  menu.innerHTML=items.map(([action,label,glyph])=>`<button role="menuitem" data-record-menu="${action}" class="${action==='trash'?'mj-danger':''}">${icon(glyph)}${escape(label)}</button>`).join('');root.append(menu);icons();
  const bounds=root.getBoundingClientRect();menu.style.left=Math.max(8,Math.min(x-bounds.left,bounds.width-menu.offsetWidth-8))+'px';menu.style.top=Math.max(8,Math.min(y-bounds.top,bounds.height-menu.offsetHeight-8))+'px';menu.querySelector('button')?.focus({preventScroll:true});
 }
 window.addEventListener('contextmenu',event=>{
- if(!$('#mj-overlay').hidden||event.target.closest('input,textarea,[contenteditable=true]'))return;
- const row=event.target.closest('[data-record-id]'),open=event.target.closest('[data-open]'),trash=event.target.closest('.mj-trash-row');
+ closeRecordMenu();if(!$('#mj-overlay').hidden||event.target.closest('input,textarea,[contenteditable=true]'))return;
+ // The document body also carries a record ID for viewport restoration. It is
+ // not a list row: document context actions must target content, never credentials.
+ if(event.target.closest('.mj-docbody,#mj-layout-inspector')){const block=event.target.closest('#mj-blocks>[data-component]');if(block&&isEditing()){event.preventDefault();event.stopImmediatePropagation();showDocumentMenu(Number(block.dataset.component),event.clientX,event.clientY);}return;}
+ const row=event.target.closest('.mj-table tbody tr[data-record-id]'),open=event.target.closest('[data-open]'),trash=event.target.closest('.mj-trash-row');
  const id=row?.dataset.recordId||open?.dataset.open||trash?.querySelector('[data-refine="restore-record"]')?.dataset.id;
  const r=record(id)||trashedRecords.find(item=>item.id===id);if(!r)return;
  event.preventDefault();event.stopImmediatePropagation();showRecordMenu(r,event.clientX,event.clientY,!!trash);
@@ -189,7 +192,7 @@ window.addEventListener('pointerdown',event=>{if(!event.target.closest('.mj-reco
 window.addEventListener('keydown',event=>{
  const menu=$('.mj-record-menu');if(!menu)return;
  if(event.key==='Escape'||event.key==='Tab'){event.preventDefault();event.stopImmediatePropagation();closeRecordMenu();return;}
- if(['ArrowDown','ArrowUp','Home','End'].includes(event.key)){event.preventDefault();event.stopImmediatePropagation();const buttons=[...menu.querySelectorAll('button')],index=buttons.indexOf(document.activeElement);buttons[event.key==='Home'?0:event.key==='End'?buttons.length-1:(index+(event.key==='ArrowDown'?1:buttons.length-1))%buttons.length]?.focus();}
+  if(['ArrowDown','ArrowUp','Home','End'].includes(event.key)){event.preventDefault();event.stopImmediatePropagation();const buttons=[...menu.querySelectorAll('button:not(:disabled)')],index=buttons.indexOf(document.activeElement);buttons[event.key==='Home'?0:event.key==='End'?buttons.length-1:(index+(event.key==='ArrowDown'?1:buttons.length-1))%buttons.length]?.focus();}
 },true);
 window.addEventListener('click',async event=>{
  if(event.target.closest('[data-action="finish-relations"]')){
@@ -203,6 +206,8 @@ window.addEventListener('click',async event=>{
   if(action==='restore')restoreRecord(r.id);
   if(action==='edit'){if(r._sealed)await openSealedRecord(r.id,true);else{openRecord(r.id);docMode='edit';render();}}
   if(action==='favorite'){r.favorite=!r.favorite;render();remember();}
+  if(action==='pin')await toggleRecordPin(r.id);
+  if(action==='move-up'||action==='move-down')await moveRecordByStep(r.id,action==='move-up'?-1:1);
   if(action==='trash')confirmRecordTrash(r.id);
   if(action==='rename')await beginRecordRename(r.id);
   if(action==='copy-account')copyListedValue(r,'account');

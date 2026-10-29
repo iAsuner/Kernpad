@@ -100,6 +100,7 @@
 #kernpad-root.mj-v5 .mj-record-menu{position:absolute;z-index:1000;width:208px;padding:5px;border-radius:9px;border:1px solid color-mix(in srgb,var(--mj-muted) 22%,transparent);background:var(--mj-bg);box-shadow:0 8px 32px #00000028}
 #kernpad-root.mj-v5 .mj-record-menu button{display:flex;align-items:center;gap:9px;border:0;border-radius:5px;background:transparent;width:100%;text-align:left;padding:5px 9px;font-size:13px;line-height:20px}
 #kernpad-root.mj-v5 .mj-record-menu button svg{width:14px;height:14px;color:var(--mj-muted)}
+#kernpad-root.mj-v5 .mj-record-menu button:disabled{opacity:.4;cursor:default;pointer-events:none}
 #kernpad-root.mj-v5 .mj-record-menu button:hover,#kernpad-root.mj-v5 .mj-record-menu button:focus-visible{background:var(--mj-accent);color:#fff;outline:none}
 #kernpad-root.mj-v5 .mj-record-menu button:hover svg,#kernpad-root.mj-v5 .mj-record-menu button:focus-visible svg{color:inherit}
 #kernpad-root.mj-v5 .mj-platform-list{display:grid;gap:8px;padding:12px 0}

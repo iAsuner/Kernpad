@@ -154,6 +154,10 @@ public sealed partial class MainWindow : Window {
         case "recordPreviews":return store.Previews(payload.Array("ids").Select(v=>v!.GetValue<string>()).ToArray(),payload.Text("session"));
         case "copyRecordValue":SetClipboard(store.CopyValue(payload.Text("id"),payload.Text("key"),payload["index"]?.GetValue<int>()??-1,payload.Text("session")));return new JsonObject{["copied"]=true};
         case "copy":var text=payload.Text("text");if(Encoding.UTF8.GetByteCount(text)>1000000)throw new InvalidDataException("Copy too large");SetClipboard(text);return JsonValue.Create(true);
+        case "trackDocumentClipboard":
+            var token=payload.Text("token");if(!Guid.TryParse(token,out _))throw new InvalidDataException("Invalid clipboard token");
+            var matches=Clipboard.ContainsData(DataFormats.Html)&&Clipboard.GetData(DataFormats.Html) is string clipboardHtml&&clipboardHtml.Contains("data-kernpad-copy=\""+token+"\"",StringComparison.Ordinal);
+            if(matches)TrackClipboardExpiry();return JsonValue.Create(matches);
         case "openURL":if(!Records.PublicUrl(payload.Text("url")))throw new InvalidDataException("Invalid external URL");Process.Start(new ProcessStartInfo(payload.Text("url")){UseShellExecute=true});return JsonValue.Create(true);
         case "create":return await CreateVault();
         case "unlock":return await Unlock(payload.Text("mode"));
@@ -262,7 +266,8 @@ public sealed partial class MainWindow : Window {
         list.MouseDoubleClick+=(_,_)=>{if(list.SelectedItem!=null)dialog.DialogResult=true;};dialog.Content=panel;dialog.Loaded+=(_,_)=>list.Focus();
         if(dialog.ShowDialog()!=true||list.SelectedItem is not string profile)return new(){["cancelled"]=true};store.Switch(profile);ClearClipboard();return store.Status(available);
     }
-    void SetClipboard(string text){Clipboard.SetText(text);clipboardSequence=GetClipboardSequenceNumber();ownsClipboard=true;var version=++clipboardVersion;var clear=new DispatcherTimer{Interval=TimeSpan.FromSeconds(30)};clear.Tick+=(_,_)=>{clear.Stop();if(version==clipboardVersion)ClearClipboard();};clear.Start();}
+    void SetClipboard(string text){Clipboard.SetText(text);TrackClipboardExpiry();}
+    void TrackClipboardExpiry(){clipboardSequence=GetClipboardSequenceNumber();ownsClipboard=true;var version=++clipboardVersion;var clear=new DispatcherTimer{Interval=TimeSpan.FromSeconds(30)};clear.Tick+=(_,_)=>{clear.Stop();if(version==clipboardVersion)ClearClipboard();};clear.Start();}
     void ClearClipboard(){try{if(ownsClipboard&&GetClipboardSequenceNumber()==clipboardSequence)Clipboard.Clear();}catch{}ownsClipboard=false;clipboardVersion++;}
     async Task LockWeb(){
         if(locking||!loaded)return;locking=true;authGeneration++;

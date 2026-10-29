@@ -28,7 +28,7 @@ function runDocumentHistory(action){
  const entry=from.pop();if(!entry)return false;
  to.push(current);boundEditorHistory(to);applyingHistory=true;
  try{
-  const r=selected(),protectedBefore=isProtected(r),expiration=r.expiresAt;for(const key of Object.keys(r))delete r[key];Object.assign(r,cloneDocumentValue(entry.record));if(protectedBefore)r.protected=true;if(expiration&&!isProtected(r))r.expiresAt=expiration;syncRecordMetadata(r);
+  const r=selected(),protectedBefore=isProtected(r),expiration=r.expiresAt,pinned=r.pinned;for(const key of Object.keys(r))delete r[key];Object.assign(r,cloneDocumentValue(entry.record));if(pinned===undefined)delete r.pinned;else r.pinned=pinned;if(protectedBefore)r.protected=true;if(expiration&&!isProtected(r))r.expiresAt=expiration;syncRecordMetadata(r);
   state.area=isProtected(r)?'vault':'notes';richSelection=null;render();restoreDocumentViewport(entry.viewport);restoreRichBookmark(entry.bookmark);
   const field=findEditorFocus(root,entry.focus);if(field?.closest('.mj-paper')){field.focus({preventScroll:true});restoreEditorCaret(field,entry.focus);}
   if(richSelection?.el.isConnected){richSelection.el.focus({preventScroll:true});const selection=window.getSelection();selection.removeAllRanges();selection.addRange(richSelection.range);}

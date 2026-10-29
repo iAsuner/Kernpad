@@ -1,4 +1,5 @@
 /* Note cards used a broad >span rule that offset the nested delete glyph. */
+#kernpad-root.mj-v5 .mj-block-table td.mj-cell-selected{background:var(--mj-blue-soft);box-shadow:inset 0 0 0 1px var(--mj-blue)}
 #kernpad-root.mj-v5 .mj-note-card>.mj-card-delete{display:flex;align-items:center;justify-content:center;gap:0;padding:0;margin:0;line-height:1;width:26px;height:26px}
 #kernpad-root.mj-v5 .mj-card-delete>svg{display:block;width:15px;height:15px;margin:0;flex:none}
 #kernpad-root.mj-v5 .mj-rich-toolbar{gap:3px;padding:7px 14px;row-gap:6px}

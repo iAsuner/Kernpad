@@ -57,6 +57,8 @@ The bundled examples demonstrate an editorial document, a travel journal, a Mark
 
 ## Notes and document editing
 
+New notes and accounts appear first among unpinned records. Use the pin button on a card or account row, or its context menu, to pin or unpin it. Pinned records stay first. Drag a handle to reorder within the pinned or unpinned group; focus the handle and use the up and down arrow keys to move with the keyboard. Reordering a filtered list preserves the relative order of other records. Drag sorting is disabled in search results and selection mode. Nearby items slide aside during dragging. The new order is saved on drop; cancelling restores the original positions. Motion is simplified when the system requests reduced motion. Order and pins survive reopening and backup restoration.
+
 ![Native macOS editor](images/en/editor.webp)
 
 ### Content and layout
@@ -65,7 +67,11 @@ Components include headings, body text, quotes, callouts, tasks, ordered and uno
 
 Markdown and HTML are converted into editable components. Markdown implements a practical subset rather than full CommonMark. HTML conversion removes scripts, event handlers, embeds and remote images; it does not execute the original page or guarantee pixel-identical website reproduction.
 
-Type `@` on an empty line, use the adjacent `+`, or choose Insert in the toolbar. New headings and paragraphs start empty; placeholders are not saved as content. Insert between existing blocks, drag to reorder, and select several components for formatting or deletion.
+Click between rows, use the adjacent `+`, or click the writing row at the end to start a body paragraph. Type `@` or choose Insert in the toolbar to select a component. New headings and paragraphs start empty; placeholders are not saved as content. Insert between existing blocks, drag to reorder, and select several components for formatting or deletion. Nearby components slide aside while dragging. Drop to commit the arrangement, or cancel to restore it; multi-selection, columns and spanning rows are supported. Right-click a component handle for properties, copy, cut, insertion, ordering and deletion. Text and input fields keep their text editing menus.
+
+Paste multiple rows and columns into the current table cell; the grid expands as needed. Shift-click another cell or use Shift with arrow keys to select a rectangle, then copy or cut it. Selecting text within a cell still copies only that text. Tab moves to the next cell and adds a row at the end. Tables support up to 1,000 rows and 100 columns.
+
+Click a left handle to select a whole component. Use Command / Ctrl to add components or Shift to select a range, then copy or cut them into another document. Pasting preserves component types, content, formatting, columns and local media, with fresh component IDs. Protected components can only be pasted into unlocked vault documents; explicitly public authenticator blocks retain their public-note semantics. Each paste or cut can be undone and redone.
 
 The Layout panel provides:
 

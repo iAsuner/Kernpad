@@ -7,7 +7,7 @@ using System.Text.RegularExpressions;
 namespace Kernpad.Core;
 
 public static class Records {
-    public static readonly HashSet<string> Metadata = ["id", "type", "name", "favorite", "deletedAt", "refs", "platform", "platformName", "tag", "totp"];
+    public static readonly HashSet<string> Metadata = ["id", "type", "name", "favorite", "pinned", "deletedAt", "refs", "platform", "platformName", "tag", "totp"];
     public static readonly HashSet<string> SummaryKeys = [.. Metadata, "_sealed", "protected", "hasCodes", "fields", "blocks", "links"];
     static readonly HashSet<string> BlockTypes = ["text", "heading", "code", "check", "quote", "list", "table", "form", "otp", "date", "tags", "link", "callout", "divider", "image", "video"];
     public static bool SafeId(string value) => value.Length is > 0 and <= 128 && Regex.IsMatch(value, "^[A-Za-z0-9_-]+$") && value is not ("__proto__" or "prototype" or "constructor");
@@ -30,6 +30,7 @@ public static class Records {
             if (!SafeId(r.Text("id")) || !ids.Add(r.Text("id")) || !SafeId(r.Text("type")) || r["name"] is not JsonValue
                 || r.Array("refs").Any(v => !SafeId(v!.GetValue<string>())) || r.Array("links").Any(v => v is not JsonArray a || a.Count != 2 || a.Any(s => s is not JsonValue))) throw new InvalidDataException("Invalid or duplicate record");
             _ = r.Text("name");
+            if(r.ContainsKey("pinned")&&(r["pinned"] is not JsonValue pin||!pin.TryGetValue<bool>(out _)))throw new InvalidDataException("Invalid pin state");
             Fields(r.Array("fields"));
             if (r["documentOptions"] is JsonObject doc && doc.Any(p => p.Key is not ("title" or "summary") || p.Value is not JsonValue value || !value.TryGetValue<bool>(out _))) throw new InvalidDataException("Invalid document options");
             if (r["deletedAt"] != null && !DateTimeOffset.TryParse(r.Text("deletedAt"), out _)) throw new InvalidDataException("Invalid deletion time");

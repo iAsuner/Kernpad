@@ -43,7 +43,57 @@ static class Tests {
         using var backup=VaultStore.PrepareRestore(store.Backup(),recovery);using var destination=new VaultStore(Path.Combine(root,"restored"));destination.Commit(backup,null);
         Check(destination.PrivateIndex()["templates"]!["custom"]!["custom-layout"]!["documentTemplate"]!=null,"backup restores reusable layout");
     }
+    static void ManualRecordOrderChecks(string root){
+        using var store=new VaultStore(root);using var vault=VaultStore.New();var recovery=Crypto.FormatRecovery(vault.Recovery);store.Commit(vault,null);
+        JsonObject Note(string id){var n=Record(id,"note");n["fields"]=new JsonArray();return n;}
+        JsonObject[] Items(){var envelope=store.Envelope!;var bytes=Crypto.Open(envelope.Ciphertext,vault.Key,envelope.Aad("payload"));try{return Json.Object(bytes).Array("items").OfType<JsonObject>().ToArray();}finally{CryptographicOperations.ZeroMemory(bytes);}}
+        store.Save(Patch(store,Record("a"),Record("b"),Record("c")));
+        var before=Items().ToDictionary(i=>i.Text("id"),i=>i.Text("ciphertext"));var summaries=store.PrivateIndex().Array("records").OfType<JsonObject>().ToArray();summaries[1]["pinned"]=true;
+        var n1=Note("n1");var n2=Note("n2");n2["pinned"]=true;var model=Patch(store,[..summaries,n1,n2]);model["recordOrder"]=new JsonArray("c","b","a","n2","n1");var decryptions=store.Decryptions;store.Save(model);
+        var after=Items();Check(after.Select(i=>i.Text("id")).SequenceEqual(["c","b","a"]),"manual account sorting overrides stored order");
+        Check(store.Decryptions==decryptions&&after.All(i=>before[i.Text("id")]==i.Text("ciphertext")),"pinning and dragging neither decrypt nor reseal existing bodies");
+        Check(store.Notes().OfType<JsonObject>().Select(n=>n.Text("id")).SequenceEqual(["n2","n1"]),"manual note order is committed");
+        Check(store.OpenRecord("b",store.Session).Flag("pinned"),"detail merges pinned summary metadata");
+        var disk=File.ReadAllBytes(store.VaultPath);var notes=File.ReadAllBytes(Path.Combine(store.DirectoryPath,"notes.json"));
+        foreach(var invalid in new JsonNode[]{new JsonArray("a","a"),new JsonArray("missing"),new JsonArray("../outside"),JsonValue.Create("wrong")!,new JsonArray(1)}){model["recordOrder"]=invalid;Reject(()=>store.Save(model),"invalid manual order");}
+        Check(File.ReadAllBytes(store.VaultPath).SequenceEqual(disk)&&File.ReadAllBytes(Path.Combine(store.DirectoryPath,"notes.json")).SequenceEqual(notes),"invalid order preserves both stores");
+        var bad=summaries[0].Copy();bad["pinned"]="true";Reject(()=>Records.Validate(new JsonArray(bad)),"invalid pin state");
+        store.Lock();using var restarted=new VaultStore(root);restarted.UnlockRecovery(recovery);var index=restarted.PrivateIndex().Array("records");
+        Check(index.OfType<JsonObject>().Select(r=>r.Text("id")).SequenceEqual(["c","b","a"])&&index[1]!.Flag("pinned"),"manual account order and pin survive restart");
+        Check(restarted.Notes()[0]!.Flag("pinned")&&restarted.Notes()[0]!.Text("id")=="n2","note pin and order survive restart");
+        using var restored=VaultStore.PrepareRestore(restarted.Backup(),recovery);using var target=new VaultStore(Path.Combine(root,"restored"));target.Commit(restored,null);var restoredIndex=target.PrivateIndex().Array("records");
+        Check(restoredIndex.OfType<JsonObject>().Select(r=>r.Text("id")).SequenceEqual(["c","b","a"])&&restoredIndex[1]!.Flag("pinned"),"backup retains pin and order");
+        var unpinned=index[1]!.AsObject().Copy();unpinned["pinned"]=false;var partial=Patch(restarted,unpinned,n2,n1);partial["recordOrder"]=new JsonArray("b");restarted.Save(partial);var current=restarted.PrivateIndex().Array("records");
+        Check(current.OfType<JsonObject>().Select(r=>r.Text("id")).SequenceEqual(["b","c","a"])&&!current[0]!.Flag("pinned"),"partial sorting preserves omitted records and supports unpinning");
+    }
+    static void RecordOrderingChecks(string root){
+        using var store=new VaultStore(root);using var vault=VaultStore.New();var recovery=Crypto.FormatRecovery(vault.Recovery);store.Commit(vault,null);
+        string[] Ids(VaultStore value)=>value.PrivateIndex().Array("records").OfType<JsonObject>().Select(r=>r.Text("id")).ToArray();
+        JsonObject[] Items(){var envelope=store.Envelope!;var bytes=Crypto.Open(envelope.Ciphertext,vault.Key,envelope.Aad("payload"));try{return Json.Object(bytes).Array("items").OfType<JsonObject>().ToArray();}finally{CryptographicOperations.ZeroMemory(bytes);}}
+        JsonObject Note(string id){var value=Record(id,"note");value["fields"]=new JsonArray();return value;}
+        var oldNote=Note("older-note");var newNote=Note("newer-note");store.Save(Patch(store,Record("older-a"),Record("older-b"),oldNote));
+        var before=Items();
+        var summaries=store.PrivateIndex().Array("records").OfType<JsonObject>().ToArray();var decryptions=store.Decryptions;
+        store.Save(Patch(store,[Record("new-account"),..summaries,newNote,oldNote]));
+        Check(Ids(store).SequenceEqual(["new-account","older-a","older-b"]),"new accounts are stored before existing records");
+        Check(store.Decryptions==decryptions,"preserving insertion order decrypts no existing bodies");
+        var after=Items();
+        Check(after[1].Text("ciphertext")==before[0].Text("ciphertext")&&after[2].Text("ciphertext")==before[1].Text("ciphertext"),"inserting a record keeps existing ciphertext verbatim");
+        var metadata=summaries[1].Copy();metadata["favorite"]=true;store.Save(Patch(store,metadata,newNote,oldNote));
+        Check(Ids(store).SequenceEqual(["new-account","older-a","older-b"]),"partial metadata patches preserve existing and omitted record positions");
+        store.Save(Patch(store,Record("batch-first"),Record("batch-second"),newNote,oldNote));
+        string[] expected=["batch-first","batch-second","new-account","older-a","older-b"];
+        Check(Ids(store).SequenceEqual(expected),"batch insertion retains its submitted order before omitted records");store.Lock();
+        using var restarted=new VaultStore(root);Check(restarted.Notes().OfType<JsonObject>().Select(n=>n.Text("id")).SequenceEqual(["newer-note","older-note"]),"new public notes retain their positions after restart");restarted.UnlockRecovery(recovery);
+        Check(Ids(restarted).SequenceEqual(expected),"new account order survives lock and process restart");
+        using var restored=VaultStore.PrepareRestore(restarted.Backup(),recovery);using var target=new VaultStore(Path.Combine(root,"restored"));target.Commit(restored,null);
+        Check(Ids(target).SequenceEqual(expected),"backup restore retains record insertion order");
+        var deletion=Patch(restarted,newNote,oldNote);deletion["deletedIDs"]=new JsonArray("batch-first");restarted.Save(deletion);
+        Check(Ids(restarted).SequenceEqual(expected.Skip(1)),"explicit deletion preserves remaining record order");
+    }
     static void Run(string root,string[] args){
+        RecordOrderingChecks(Path.Combine(root,"record-ordering"));
+        ManualRecordOrderChecks(Path.Combine(root,"manual-record-order"));
         DocumentTemplateChecks(Path.Combine(root,"document-templates"));
         ManualDraftChecks(Path.Combine(root,"manual-drafts"));
         TemporaryNoteChecks(Path.Combine(root,"temporary-notes"));
