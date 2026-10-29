@@ -51,19 +51,25 @@ final class AppEditorRunner:NSObject,NSApplicationDelegate,WKNavigationDelegate{
      };return
     }
     if CommandLine.arguments.contains("--styles") { self.checkInspectorWidths();return }
-    self.beginPhase("editing and persistence")
-    self.web.callAsyncJavaScript("window.requestAnimationFrame=callback=>setTimeout(callback,0); await window.__runEditorChecks(); await window.__runInteractionChecks(); await window.__runDocumentInteractionChecks(); await window.__runClipboardChecks(); await window.__runRecordOrderChecks(); await window.__runPersistenceChecks(); return await window.__runDocumentTemplateChecks();",arguments:[:],in:nil,in:.page){result in
-     switch result{
-     case .success(let count):
-      self.web.takeSnapshot(with:nil){ image,error in
-       guard let image,let tiff=image.tiffRepresentation,let bitmap=NSBitmapImageRep(data:tiff),let png=bitmap.representation(using:.png,properties:[:]) else{print(error as Any);exit(1)}
-       do{try png.write(to:self.project.appendingPathComponent("Build/quick-list-preview.png"));print("\(count) full-app editor / public OTP / inspector checks passed");self.checkInspectorWidths()}catch{print(error);exit(1)}
-      }
-     case .failure(let error):print(error);exit(1)
-     }
-    }
+    self.runEditorPhases()
    }
   }catch{print(error);exit(1)}
+ }
+ func runEditorPhases(_ index:Int=0,_ count:Int=0){
+  let phases=[("editor", "__runEditorChecks"),("interaction", "__runInteractionChecks"),("document dragging and menus", "__runDocumentInteractionChecks"),("clipboard", "__runClipboardChecks"),("record ordering", "__runRecordOrderChecks"),("persistence", "__runPersistenceChecks"),("document templates", "__runDocumentTemplateChecks")]
+  guard index<phases.count else{
+   web.takeSnapshot(with:nil){image,error in
+    guard let tiff=image?.tiffRepresentation,let bitmap=NSBitmapImageRep(data:tiff),let png=bitmap.representation(using:.png,properties:[:]) else{print(error as Any);exit(1)}
+    do{try png.write(to:self.project.appendingPathComponent("Build/quick-list-preview.png"));print("\(count) full-app editor / public OTP / inspector checks passed");self.checkInspectorWidths()}catch{print(error);exit(1)}
+   };return
+  }
+  let (name,task)=phases[index];beginPhase(name)
+  web.callAsyncJavaScript("window.requestAnimationFrame=callback=>setTimeout(callback,0);return await window.\(task)();",arguments:[:],in:nil,in:.page){result in
+   switch result{
+   case .success(let value):self.runEditorPhases(index+1,(value as? NSNumber)?.intValue ?? count)
+   case .failure(let error):print("Editor phase \(name): \(error)");self.captureAudit("failed-\(index)"){exit(1)}
+   }
+  }
  }
  func captureDocumentMotionPreview(){
   web.callAsyncJavaScript("return await window.__showDocumentMotionPreview();",arguments:[:],in:nil,in:.page){result in

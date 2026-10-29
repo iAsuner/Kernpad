@@ -62,13 +62,16 @@ root.addEventListener('click',event=>{
 function removeTemplateFieldRow(index){
  const dialog=$('.mj-template-settings-body')||$('.mj-modal'),rows=$$('.mj-field-table tbody tr'),row=rows[index],top=dialog.scrollTop;
  if(!row||!removeTemplateField(builder,index))return;
- modalLayoutRevision++;
+ const revision=++modalLayoutRevision;
  // Keep other fields and their native selection alive. Replacing the complete
  // focused form triggers delayed reveal scrolling on older macOS WebKit.
- if(row.contains(document.activeElement))(rows[index+1]?.querySelector('input')||rows[index-1]?.querySelector('input')||$('[data-v3="template-add-field"]'))?.focus({preventScroll:true});
+ // An offscreen replacement input can trigger WebKit's delayed caret reveal
+ // even with preventScroll. Move focus to the surviving scroll container.
+ if(row.contains(document.activeElement)){dialog.tabIndex=-1;dialog.focus({preventScroll:true});}
  row.remove();
  $$('.mj-field-table tbody tr').forEach((row,i)=>{for(const el of row.querySelectorAll('[data-def-label],[data-def-key],[data-def-kind],[data-def-required],[data-template-include],[data-exp="remove-template-field"]'))for(const key of ['defLabel','defKey','defKind','defRequired','templateInclude','index'])if(el.dataset[key]!==undefined)el.dataset[key]=String(i);});
- $('#mj-pattern').value=builder.pattern;importRuleDesigner();if(typeof refreshTemplateListOptions==='function')refreshTemplateListOptions();invalidatePreview();dialog.scrollTop=top;
+ $('#mj-pattern').value=builder.pattern;importRuleDesigner();if(typeof refreshTemplateListOptions==='function')refreshTemplateListOptions();invalidatePreview();
+ const restore=()=>{if(revision===modalLayoutRevision&&dialog.isConnected&&!$('#mj-overlay').hidden)dialog.scrollTop=top;};restore();queueMicrotask(restore);requestAnimationFrame(restore);
 }
 const saveTemplateSchemaBase=saveTemplate;
 saveTemplate=function(silent=false){

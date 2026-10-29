@@ -3,19 +3,24 @@ $ErrorActionPreference = 'Stop'
 # Run only on an expendable VM account. No certificate is added to a trust store.
 $libraryRoot = Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'Kernpad'
 if (Test-Path -LiteralPath $libraryRoot) { throw 'Use a fresh disposable Windows account: an existing Kernpad library must not be used by this test' }
+$starterReadError = $null
 function Read-StarterNotes {
     try {
+        $script:starterReadError = $null
         $profile = Get-Content -LiteralPath (Join-Path $libraryRoot 'active.json') -Raw -Encoding UTF8 | ConvertFrom-Json
         $profileID = [guid]::Empty
         if (-not [guid]::TryParse([string]$profile, [ref]$profileID)) { return @() }
         $path = Join-Path $libraryRoot ('Libraries/' + $profileID.ToString('D') + '/notes.json')
-        $notes = @(Get-Content -LiteralPath $path -Raw -Encoding UTF8 | ConvertFrom-Json)
+        # PowerShell 5.1 emits the JSON array as one pipeline object. Assign
+        # it before enumeration so four notes do not become one nested array.
+        $decoded = Get-Content -LiteralPath $path -Raw -Encoding UTF8 | ConvertFrom-Json
+        $notes = @($decoded)
         if ($notes.Count -ne 4) { return @() }
         foreach ($note in $notes) {
             if ($note.type -ne 'note' -or $note.id -notlike 'example-*' -or -not $note.name -or @($note.blocks).Count -eq 0) { return @() }
         }
         return $notes
-    } catch { return @() } # The atomic startup write may not have completed yet.
+    } catch { $script:starterReadError = $_.Exception.Message; return @() } # The atomic startup write may not have completed yet.
 }
 $source = (Resolve-Path $PublishDirectory).Path
 $temporary = Join-Path ([IO.Path]::GetTempPath()) ('Kernpad-SelfSign-' + [guid]::NewGuid())
@@ -72,13 +77,16 @@ try {
             catch [System.Windows.Automation.ElementNotAvailableException] { continue }
         }
         $starterNotes = @(Read-StarterNotes)
-        $editorReady = $starterNotes.Count -eq 4 -and @($starterNotes | Where-Object { $_.name -notin $visibleNames }).Count -eq 0
+        # At the runner's small display size the navigation can be clipped.
+        # Visible document cards expose the title followed by their summary.
+        $missingNotes = @($starterNotes | Where-Object { $noteName = [string]$_.name; @($visibleNames | Where-Object { $_ -eq $noteName -or $_.StartsWith($noteName + ' ', [StringComparison]::Ordinal) }).Count -eq 0 })
+        $editorReady = $starterNotes.Count -eq 4 -and $missingNotes.Count -eq 0
         if (-not $editorReady) { Start-Sleep -Milliseconds 300 }
     } while (-not $editorReady -and (Get-Date) -lt $deadline)
     if (-not $editorReady) {
         $diagnostic = Join-Path $PSScriptRoot 'Artifacts/windows-installed-ui.json'
         $elements = $windowElement.FindAll([System.Windows.Automation.TreeScope]::Descendants, [System.Windows.Automation.Condition]::TrueCondition)
-        $items = @([ordered]@{ title = $process.MainWindowTitle; help = $windowElement.Current.HelpText; count = $elements.Count })
+        $items = @([ordered]@{ title = $process.MainWindowTitle; help = $windowElement.Current.HelpText; count = $elements.Count; persistedNotes = $starterNotes.Count; missingTitles = @($missingNotes | ForEach-Object { $_.name }); readError = $starterReadError })
         foreach ($element in $elements) { $items += [ordered]@{ name = $element.Current.Name; type = $element.Current.ControlType.ProgrammaticName; help = $element.Current.HelpText } }
         $items | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $diagnostic -Encoding utf8
         Add-Type -AssemblyName System.Drawing, System.Windows.Forms
