@@ -16,7 +16,7 @@
   <ItemGroup>
     <Resource Include="Kernpad.ico" />
     <ProjectReference Include="../Kernpad.Core/Kernpad.Core.csproj" />
-    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4258.31" />
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4314.35" />
     <Content Include="../../Source/Web/index.html;../../Source/Web/app.js;../../Source/Web/app.css;../../Source/Web/lucide.min.js;../../Source/Web/logo.svg;../../Source/Web/LUCIDE-LICENSE.txt;../../Source/Web/PLATFORM-ICONS-LICENSE.txt">
       <Link>Web/%(Filename)%(Extension)</Link><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
